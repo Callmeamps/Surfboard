@@ -1,0 +1,15 @@
+body {
+ background-color: #16213e;
+ color: #fff;
+ margin: 0;
+ padding: 12px;
+ font-family: sans-serif;
+ min-width: 200px;
+}
+
+.popup h1 {
+ color: #e94560;
+ font-size: 14px;
+ margin: 8px 0;
+ text-align: center;
+}

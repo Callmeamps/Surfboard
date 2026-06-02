@@ -1,0 +1,23 @@
+{
+  "name": "riced-chromium",
+  "version": "0.1.0",
+  "description": "A riced Electron-based browser with vertical tabs, sidebar, and AI sidecar",
+  "main": "app.js",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "dev": "electron . --no-sandbox --dev"
+  },
+  "keywords": [
+    "electron",
+    "browser",
+    "chromium"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "electron": "^33.0.0"
+  },
+  "devDependencies": {
+    "electron-reloader": "^1.2.3"
+  }
+}
