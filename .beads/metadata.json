@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "riced_chromium",
+  "project_id": "fc55a87f-e885-4537-bc1e-8517aa63ff56"
+}
