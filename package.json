@@ -5,7 +5,8 @@
   "main": "app.js",
   "scripts": {
     "start": "electron . --no-sandbox",
-    "dev": "electron . --no-sandbox --dev"
+    "dev": "electron . --no-sandbox --dev",
+    "test": "jest --verbose"
   },
   "keywords": [
     "electron",
@@ -18,6 +19,7 @@
     "electron": "^33.0.0"
   },
   "devDependencies": {
-    "electron-reloader": "^1.2.3"
+    "electron-reloader": "^1.2.3",
+    "jest": "^30.4.2"
   }
 }

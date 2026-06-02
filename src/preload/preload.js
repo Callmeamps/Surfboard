@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     close: (tabId) => ipcRenderer.invoke('tabs:close', tabId),
     switch: (tabId) => ipcRenderer.invoke('tabs:switch', tabId),
     list: () => ipcRenderer.invoke('tabs:list'),
+    registerWebview: (tabId, wcId) => ipcRenderer.send('tabs:register-webview', tabId, wcId),
     notifyVisibility: (tabId, visible) => ipcRenderer.invoke('tabs:notify-visibility', tabId, visible),
     resume: (tabId, url) => ipcRenderer.invoke('tabs:resume', tabId, url),
     onUpdated: (callback) => {

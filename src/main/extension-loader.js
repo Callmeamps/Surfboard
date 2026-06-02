@@ -144,9 +144,18 @@ let broadcastTimeout = null;
 function scheduleBroadcast() {
  if (broadcastTimeout) clearTimeout(broadcastTimeout);
  broadcastTimeout = setTimeout(() => {
- broadcastUpdate('extensions');
+ broadcastUpdate();
  broadcastTimeout = null;
  }, 100);
+}
+
+function broadcastUpdate() {
+ const exts = listExtensions();
+ for (const win of BrowserWindow.getAllWindows()) {
+ if (!win.isDestroyed()) {
+ win.webContents.send('extensions:updated', exts);
+ }
+ }
 }
 
 module.exports = {

@@ -48,7 +48,7 @@ function onTabActivated(tabId) {
 function onTabClosed(tabId) {
   _tabOrder = _tabOrder.filter(id => id !== tabId);
   clearSuspend(tabId);
-  _webviewElements.delete(tabId);
+  unregisterWebContents(tabId);
 }
 
 /**
@@ -61,11 +61,18 @@ function onTabCreated(tabId) {
 }
 
 /**
- * Register a webview element reference for lifecycle management.
- * Called from renderer via IPC.
+ * Register a webContents for lifecycle management.
+ * Maps tabId → webContents for LOD throttling.
  */
-function registerWebview(tabId, webviewRef) {
-  _webviewElements.set(tabId, webviewRef);
+function registerWebContents(tabId, webContents) {
+  _webviewElements.set(tabId, webContents);
+}
+
+/**
+ * Unregister webContents for a tab.
+ */
+function unregisterWebContents(tabId) {
+  _webviewElements.delete(tabId);
 }
 
 /**
@@ -143,11 +150,18 @@ function broadcastSuspend(tabId) {
   }
 }
 
+function getWebContents(tabId) {
+  const wc = _webviewElements.get(tabId);
+  return (wc && !wc.isDestroyed()) ? wc : null;
+}
+
 module.exports = {
   onTabActivated,
   onTabClosed,
   onTabCreated,
-  registerWebview,
+  registerWebContents,
+  unregisterWebContents,
+  getWebContents,
   getTabLod,
   getTabOrder,
   getActiveTabId,

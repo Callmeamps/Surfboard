@@ -2,7 +2,6 @@ const { ipcMain, webContents } = require('electron');
 const tabManager = require('./tab-manager');
 const windowManager = require('./window-manager');
 const storage = require('./storage');
-const lifecycle = require('./tab-lifecycle');
 const tabLifecycle = require('./tab-lifecycle');
 
 /**
@@ -28,28 +27,31 @@ function register() {
   });
 
   // ── Tab lifecycle (LOD / suspend-resume) ─────────────
+  // Renderer registers webview webContents for LOD management
+  ipcMain.on('tabs:register-webview', (_event, tabId, wcId) => {
+    const wc = webContents.fromId(wcId);
+    if (wc) tabLifecycle.registerWebContents(tabId, wc);
+  });
+
   // Renderer calls this when a tab's webview visibility changes
   ipcMain.handle('tabs:notify-visibility', (_event, tabId, visible) => {
-    const wc = webContents.fromId(tabId);
-    if (wc && !wc.isDestroyed()) {
-      wc.setBackgroundThrottled(!visible);
-      if (visible) {
-        wc.setFrameRate(60);
-      } else {
-        // Check LOD: adjacent gets 15fps, distant gets 1fps
-        const lod = tabLifecycle.getTabLod(tabId);
-        wc.setFrameRate(lod === 'adjacent' ? 15 : 1);
-      }
+    const wc = tabLifecycle.getWebContents(tabId);
+    if (!wc) return;
+    wc.setBackgroundThrottled(!visible);
+    if (visible) {
+      wc.setFrameRate(60);
+    } else {
+      const lod = tabLifecycle.getTabLod(tabId);
+      wc.setFrameRate(lod === 'adjacent' ? 15 : 1);
     }
   });
 
-  // Resume a suspended tab — reload its webview
+  // Resume a suspended tab
   ipcMain.handle('tabs:resume', (_event, tabId, url) => {
     const tab = tabManager.get(tabId);
     if (!tab) return null;
-    // Un-throttle
-    const wc = webContents.fromId(tabId);
-    if (wc && !wc.isDestroyed()) {
+    const wc = tabLifecycle.getWebContents(tabId);
+    if (wc) {
       wc.setBackgroundThrottled(false);
       wc.setFrameRate(60);
     }
@@ -58,13 +60,26 @@ function register() {
 
   // ── Sidebar ───────────────────────────────────────────
   ipcMain.handle('sidebar:toggle', () => {
-    // Deprecated: renderer handles this via settings
-    return { collapsed: false };
+    return { collapsed: true };
+  });
+
+  ipcMain.handle('sidebar:state', () => {
+    const s = storage.getSettings();
+    return { collapsed: s.sidebarCollapsed || false };
+  });
+
+  ipcMain.handle('sidebar:state:save', (_event, collapsed) => {
+    storage.updateSettings({ sidebarCollapsed: collapsed });
+    return { collapsed };
+  });
+
+  ipcMain.handle('sidebar:state:load', () => {
+    const s = storage.getSettings();
+    return { collapsed: s.sidebarCollapsed || false };
   });
 
   // ── Sidecar ───────────────────────────────────────────
   ipcMain.handle('sidecar:toggle', () => {
-    // Deprecated: renderer handles this internally
     return { visible: false };
   });
 
