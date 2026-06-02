@@ -20,7 +20,7 @@ const MAX_LIVE_WEBVIEWS = 3;       // max concurrent live webviews
 let _tabOrder = [];     // ordered list of tab IDs (most recent first)
 let _activeTabId = null;
 let _suspendTimers = new Map();   // tabId → timeoutId
-let _webviewElements = new Map(); // tabId → webview DOM reference (via IPC)
+let _webviewElements = new Map(); // tabId → webContents (for LOD throttling)
 
 // ── Public API ─────────────────────────────────────────────
 
