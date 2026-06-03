@@ -62,8 +62,14 @@ _Add your build and test commands here_
 
 ## Architecture Overview
 
-_Add a brief overview of your project architecture_
+Surfboard is an Electron-based browser with:
+- **Main process** (`src/main/`) — window management, tab lifecycle, IPC handlers, browser shell, extension loader, storage
+- **Renderer** (`src/renderer/`) — vertical tab bar, sidebar, AI sidecar, app logic in `js/app.js`
+- **Preload** (`src/preload/`) — IPC bridge exposing `electronAPI` to renderer
+- **Tests** (`test/`) — Jest-based unit tests for main process modules
 
 ## Conventions & Patterns
 
-_Add your project-specific conventions here_
+- Use `bd` (beads) for all issue tracking
+- Non-interactive shell flags required (`cp -f`, `mv -f`, `rm -f`)
+- Co-author commits: `Co-Authored-By: Oz <oz-agent@warp.dev>`

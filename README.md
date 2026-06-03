@@ -1,10 +1,11 @@
-# RicedChromium
+# Surfboard
 
 A riced Electron-based browser with:
 - Frameless window (Linux)
 - Vertical tab bar
 - Collapsible sidebar
 - Floating AI sidecar
+- Browser shell with allowlisted host commands
 - Chrome extension support
 
 ## Quick Start
@@ -38,4 +39,12 @@ window.electronAPI.extensions.load(path)
 window.electronAPI.extensions.unload(id)
 window.electronAPI.extensions.list()
 window.electronAPI.extensions.onUpdated(callback)
+window.electronAPI.shell.start()
+window.electronAPI.shell.state()
+window.electronAPI.shell.command(line)
+window.electronAPI.shell.clear()
+window.electronAPI.shell.stop()
+window.electronAPI.shell.onOutput(callback)
+window.electronAPI.shell.onStatus(callback)
+window.electronAPI.shell.onClear(callback)
 ```

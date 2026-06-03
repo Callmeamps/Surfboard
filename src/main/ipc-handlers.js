@@ -1,8 +1,88 @@
-const { ipcMain, webContents } = require('electron');
+const { app, ipcMain, webContents, BrowserWindow } = require('electron');
 const tabManager = require('./tab-manager');
 const windowManager = require('./window-manager');
 const storage = require('./storage');
 const tabLifecycle = require('./tab-lifecycle');
+const { createBrowserShellManager } = require('./browser-shell');
+
+const shortcutListeners = new Set();
+const shell = createBrowserShellManager();
+let shellEventsBound = false;
+
+app.on('before-quit', () => {
+  shell.stop();
+});
+
+function broadcastToWindows(channel, payload) {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send(channel, payload);
+    }
+  }
+}
+
+function bindShellEvents() {
+  if (shellEventsBound) return;
+  shellEventsBound = true;
+
+  shell.on('output', (payload) => {
+    broadcastToWindows('shell:output', payload);
+  });
+
+  shell.on('status', (payload) => {
+    broadcastToWindows('shell:status', payload);
+  });
+
+  shell.on('clear', () => {
+    broadcastToWindows('shell:clear');
+  });
+}
+
+function getShortcutAction(input) {
+  const mod = input.control || input.meta;
+  if (!mod) return null;
+
+  const key = (input.key || '').toLowerCase();
+  if (key === 'l') return 'show-omnibar';
+  if (key === 't') return 'new-tab';
+  if (key === 'w') return 'close-tab';
+  if (key === 'h') return 'toggle-history';
+  if (key === ',') return 'toggle-settings';
+  if (key === 'b') return 'toggle-sidebar';
+  if (input.shift && key === 'a') return 'toggle-sidecar';
+  return null;
+}
+
+function sendRendererShortcut(action) {
+  const win = windowManager.getWindow();
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('app:shortcut', action);
+  }
+}
+
+function runShortcutAction(action) {
+  if (!action) return;
+
+  switch (action) {
+    case 'new-tab':
+      tabManager.create('about:blank');
+      break;
+    case 'close-tab': {
+      const activeId = tabManager.getActiveId();
+      if (activeId) tabManager.close(activeId);
+      break;
+    }
+    case 'show-omnibar':
+    case 'toggle-history':
+    case 'toggle-settings':
+    case 'toggle-sidecar':
+    case 'toggle-sidebar':
+      sendRendererShortcut(action);
+      break;
+    default:
+      break;
+  }
+}
 
 /**
  * Register all IPC handlers.
@@ -26,11 +106,27 @@ function register() {
     return tabManager.getAll();
   });
 
+  ipcMain.handle('tabs:update', (_event, tabId, patch) => {
+    return tabManager.update(tabId, patch);
+  });
+
   // ── Tab lifecycle (LOD / suspend-resume) ─────────────
   // Renderer registers webview webContents for LOD management
   ipcMain.on('tabs:register-webview', (_event, tabId, wcId) => {
     const wc = webContents.fromId(wcId);
-    if (wc) tabLifecycle.registerWebContents(tabId, wc);
+    if (wc) {
+      if (!shortcutListeners.has(wc.id)) {
+        wc.on('before-input-event', (event, input) => {
+          const action = getShortcutAction(input);
+          if (!action) return;
+          event.preventDefault();
+          runShortcutAction(action);
+        });
+        wc.once('destroyed', () => shortcutListeners.delete(wc.id));
+        shortcutListeners.add(wc.id);
+      }
+      tabLifecycle.registerWebContents(tabId, wc);
+    }
   });
 
   // Renderer calls this when a tab's webview visibility changes
@@ -85,6 +181,33 @@ function register() {
 
   ipcMain.handle('sidecar:state', () => {
     return { visible: false };
+  });
+
+  // ── Browser shell ─────────────────────────────────────
+  ipcMain.handle('shell:start', () => {
+    bindShellEvents();
+    return shell.start();
+  });
+
+  ipcMain.handle('shell:state', () => {
+    bindShellEvents();
+    return shell.getState();
+  });
+
+  ipcMain.handle('shell:command', (_event, commandLine) => {
+    bindShellEvents();
+    return shell.send(commandLine);
+  });
+
+  ipcMain.handle('shell:clear', () => {
+    bindShellEvents();
+    shell.clear();
+    return { ok: true };
+  });
+
+  ipcMain.handle('shell:stop', () => {
+    bindShellEvents();
+    return shell.stop();
   });
 
   // ── Extensions ────────────────────────────────────────

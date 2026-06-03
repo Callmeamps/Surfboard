@@ -17,7 +17,7 @@
 - [x] Remove duplicate lifecycle import in ipc-handlers.js (commit: edc6c5e)
 - [x] Add test infrastructure — Jest, 22 passing tests (commit: edc6c5e)
 
-## Remaining (from audit, not yet beads)
+## Remaining
 
 - AI backend integration (sendChat is placeholder)
 - Extension loader testing
@@ -25,3 +25,10 @@
 - Persistent bookmark/history storage enhancements
 - Settings page builder
 - Multi-profile support
+
+## Audit Follow-up (beads)
+
+- [ ] Verify unused files — app.js, main.css, constants.js may be false positives (bead riced-chromium-1ol)
+- [ ] Refactor app.js — 19 complex untested functions, MI: 64.1 (bead riced-chromium-klx)
+- [ ] Extract tokenizeCommandLine in browser-shell.js — cognitive: 36 (bead riced-chromium-ao5)
+- [ ] Add tests for tab-lifecycle.js hotspot (bead riced-chromium-d1a)

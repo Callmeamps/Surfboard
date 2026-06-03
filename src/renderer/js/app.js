@@ -23,15 +23,27 @@
   const $newTabInput   = document.getElementById('new-tab-input');
   const $island        = document.getElementById('island');
   const $islandAi      = document.getElementById('island-ai');
+  const $islandShell   = document.getElementById('island-shell');
   const $islandOmnibar = document.getElementById('island-omnibar');
   const $islandExt     = document.getElementById('island-extensions');
   const $sidecar       = document.getElementById('sidecar');
   const $sidecarHdr    = document.getElementById('sidecar-header');
+  const $sidecarModeAi = document.getElementById('sidecar-mode-ai');
+  const $sidecarModeShell = document.getElementById('sidecar-mode-shell');
+  const $shellStatus   = document.getElementById('shell-status');
   const $sidecarConfig = document.getElementById('sidecar-config-btn');
   const $sidecarClose  = document.getElementById('sidecar-close-btn');
+  const $sidecarAiPanel = document.getElementById('sidecar-ai-panel');
+  const $sidecarShellPanel = document.getElementById('sidecar-shell-panel');
   const $chatInput     = document.getElementById('chat-input');
   const $chatSend      = document.getElementById('chat-send');
   const $chatMessages  = document.getElementById('chat-messages');
+  const $shellOutput   = document.getElementById('shell-output');
+  const $shellInput    = document.getElementById('shell-input');
+  const $shellRun      = document.getElementById('shell-run');
+  const $shellClear    = document.getElementById('shell-clear');
+  const $shellStop     = document.getElementById('shell-stop');
+  const $shellHint     = document.getElementById('shell-hint');
   const $extPanel      = document.getElementById('extensions-panel');
   const $extPanelClose = document.getElementById('extensions-panel-close');
   const $extList       = document.getElementById('extensions-list');
@@ -49,6 +61,8 @@
   let historyEntries = [];
   let settings = {};
   let sidebarCollapsed = false;
+  let sidecarMode = 'ai';
+  let shellState = { running: false, lastCommand: '', allowedCommands: [] };
   let dragState = null;
 
   // ── Webview management ──────────────────────────────────
@@ -73,26 +87,50 @@
     wv.style.display = 'none';
 
     const _t = () => tabs.get(tabId);
-    wv.addEventListener('did-start-loading',  () => { const t = _t(); if (t) t.loading = true;  _queueTabs(); });
-    wv.addEventListener('did-stop-loading',   () => { const t = _t(); if (t) t.loading = false; _queueTabs(); });
-    wv.addEventListener('page-title-updated', (e) => {
-      const t = _t(); if (t) { t.title = e.title; if (tabId === activeTabId) $addrInput.value = t.url || ''; }
+    const _syncTab = (patch) => {
+      const t = _t();
+      if (!t) return;
+      Object.assign(t, patch);
+      _tabs.update?.(tabId, patch).catch(() => {});
       _queueTabs();
+    };
+    wv.addEventListener('did-start-loading',  () => { _syncTab({ loading: true }); });
+    wv.addEventListener('did-stop-loading',   () => { _syncTab({ loading: false }); });
+    wv.addEventListener('did-fail-load',       () => { _syncTab({ loading: false }); });
+    wv.addEventListener('dom-ready', () => {
+      if (!wv.dataset.registered) {
+        const wcId = wv.getWebContentsId?.();
+        if (wcId) {
+          _tabs.registerWebview?.(tabId, wcId);
+          wv.dataset.registered = '1';
+        }
+      }
+    });
+    wv.addEventListener('page-title-updated', (e) => {
+      const title = e.title || 'New Tab';
+      const t = _t();
+      if (t && tabId === activeTabId) $addrInput.value = t.url || '';
+      _syncTab({ title });
     });
     wv.addEventListener('page-favicon-updated', (e) => {
-      const t = _t(); if (t && e.favicons?.[0]) t.favicon = e.favicons[0];
-      _queueTabs();
+      if (e.favicons?.[0]) _syncTab({ favicon: e.favicons[0] });
     });
     wv.addEventListener('did-navigate', (e) => {
       const t = _t(); if (!t) return;
-      t.url = e.url;
-      if (tabId === activeTabId) $addrInput.value = e.url;
+      const url = e.url;
+      if (tabId === activeTabId) $addrInput.value = url;
+      _syncTab({ url });
       _updateNTP();
-      if (t.url && t.url !== 'about:blank' && t.title) {
-        historyEntries = historyEntries.filter(h => h.url !== t.url);
-        historyEntries.unshift({ url: t.url, title: t.title, time: Date.now() });
-        _storage.addHistoryEntry?.({ url: t.url, title: t.title }).catch(() => {});
+      if (url && url !== 'about:blank' && t.title) {
+        historyEntries = historyEntries.filter(h => h.url !== url);
+        historyEntries.unshift({ url, title: t.title, time: Date.now() });
+        _storage.addHistoryEntry?.({ url, title: t.title }).catch(() => {});
       }
+    });
+    wv.addEventListener('did-navigate-in-page', (e) => {
+      const url = e.url;
+      if (tabId === activeTabId) $addrInput.value = url;
+      _syncTab({ url });
     });
     wv.addEventListener('new-window', (e) => { e.preventDefault(); if (e.url && e.url !== 'about:blank') _tabs.create(e.url); });
 
@@ -112,6 +150,7 @@
   const _tabs    = window.electronAPI?.tabs || {};
   const _win     = window.electronAPI?.window || {};
   const _ext     = window.electronAPI?.extensions || {};
+  const _shell   = window.electronAPI?.shell || {};
 
   // ── Helpers ──────────────────────────────────────────────
   function _favicon(u) { try { return new URL(u).origin + '/favicon.ico'; } catch { return null; } }
@@ -167,6 +206,11 @@
     title.className = 'tab-title';
     title.textContent = tab.title || tab.url || 'New Tab';
     el.appendChild(title);
+
+    const loader = document.createElement('span');
+    loader.className = 'tab-loader';
+    loader.setAttribute('aria-hidden', 'true');
+    el.appendChild(loader);
 
     const close = document.createElement('button');
     close.className = 'tab-close no-drag'; close.textContent = '✕'; close.setAttribute('aria-label', 'Close tab');
@@ -250,11 +294,114 @@
   }
 
   // ── Sidecar ──────────────────────────────────────────────
-  function _toggleSidecar() {
-    $sidecar.classList.toggle('sidecar-hidden');
-    if (!$sidecar.classList.contains('sidecar-hidden')) { $chatInput.focus(); $islandAi.classList.add('active'); }
-    else $islandAi.classList.remove('active');
+  function _renderShellState() {
+    const running = Boolean(shellState?.running);
+    if ($shellStatus) {
+      $shellStatus.textContent = running ? 'running' : 'idle';
+      $shellStatus.classList.toggle('active', running);
+    }
+    if ($shellStop) {
+      $shellStop.textContent = running ? 'Stop' : 'Start';
+    }
+    if ($shellInput) {
+      $shellInput.placeholder = running ? 'Allowlisted command…' : 'Starting shell…';
+    }
+    if ($shellHint) {
+      const allowlist = Array.isArray(shellState?.allowedCommands) ? shellState.allowedCommands : [];
+      $shellHint.textContent = allowlist.length
+        ? `Allowlisted: ${allowlist.slice(0, 8).join(', ')}${allowlist.length > 8 ? '…' : ''}`
+        : 'Allowlisted host commands only. Output streams from bash.';
+    }
   }
+
+  function _appendShellLine(stream, text) {
+    if (!$shellOutput) return;
+    const line = document.createElement('div');
+    line.className = `shell-line ${stream}`;
+    line.textContent = text;
+    $shellOutput.appendChild(line);
+    while ($shellOutput.childNodes.length > 400) {
+      $shellOutput.removeChild($shellOutput.firstChild);
+    }
+    $shellOutput.scrollTop = $shellOutput.scrollHeight;
+  }
+
+  function _clearShellOutput() {
+    if ($shellOutput) {
+      $shellOutput.textContent = '';
+    }
+  }
+
+  async function _ensureShellStarted() {
+    try {
+      const state = await _shell.start?.();
+      if (state) {
+        shellState = state;
+        _renderShellState();
+      }
+    } catch (err) {
+      _appendShellLine('stderr', `[shell] ${err.message}`);
+    }
+  }
+
+  function _setShellMode(mode) {
+    sidecarMode = mode === 'shell' ? 'shell' : 'ai';
+    $sidecarModeAi?.classList.toggle('active', sidecarMode === 'ai');
+    $sidecarModeShell?.classList.toggle('active', sidecarMode === 'shell');
+    $sidecarAiPanel?.classList.toggle('hidden', sidecarMode !== 'ai');
+    $sidecarShellPanel?.classList.toggle('hidden', sidecarMode !== 'shell');
+    $islandAi.classList.toggle('active', sidecarMode === 'ai' && !$sidecar.classList.contains('sidecar-hidden'));
+    $islandShell.classList.toggle('active', sidecarMode === 'shell' && !$sidecar.classList.contains('sidecar-hidden'));
+    if (!$sidecar.classList.contains('sidecar-hidden')) {
+      if (sidecarMode === 'shell') {
+        _ensureShellStarted();
+        $shellInput?.focus();
+      } else {
+        $chatInput?.focus();
+      }
+    }
+  }
+
+  function _showSidecar(mode = sidecarMode) {
+    $sidecar.classList.remove('sidecar-hidden');
+    _setShellMode(mode);
+  }
+
+  function _hideSidecar() {
+    $sidecar.classList.add('sidecar-hidden');
+    $islandAi.classList.remove('active');
+    $islandShell.classList.remove('active');
+  }
+
+  function _toggleSidecar(mode = sidecarMode) {
+    if ($sidecar.classList.contains('sidecar-hidden')) {
+      _showSidecar(mode);
+      return;
+    }
+    if (sidecarMode !== mode) {
+      _setShellMode(mode);
+      return;
+    }
+    _hideSidecar();
+  }
+
+  async function _sendShellCommand() {
+    const text = $shellInput.value.trim();
+    if (!text) return;
+
+    $shellInput.value = '';
+    _appendShellLine('command', `› ${text}`);
+
+    try {
+      const res = await _shell.command?.(text);
+      if (!res?.ok) {
+        _appendShellLine('stderr', res?.error || 'Command blocked');
+      }
+    } catch (err) {
+      _appendShellLine('stderr', err.message || 'Shell command failed');
+    }
+  }
+
   function _startDrag(e) { if (e.button !== 0) return; e.preventDefault(); const r = $sidecar.getBoundingClientRect(); dragState = { sx: e.clientX, sy: e.clientY, ot: r.top, ol: r.left }; }
   function _onDrag(e) { if (!dragState) return; e.preventDefault(); $sidecar.style.top = (dragState.ot + e.clientY - dragState.sy) + 'px'; $sidecar.style.left = (dragState.ol + e.clientX - dragState.sx) + 'px'; $sidecar.style.right = 'auto'; }
   function _endDrag() { dragState = null; }
@@ -368,6 +515,7 @@
 
   function _openAiConfig() {
     if (!$settingsOv) _buildSettings();
+    _setShellMode('ai');
     $settingsOv.classList.remove('hidden');
     $settingsOv.querySelector('#set-se').value = settings.searchEngine || 'google';
     _populateAi();
@@ -382,6 +530,29 @@
     const am = document.createElement('div'); am.className = 'chat-msg assistant'; am.textContent = '⚙️ AI not configured. Open Settings → AI Configuration to set up your API key and model.'; $chatMessages.appendChild(am); $chatMessages.scrollTop = $chatMessages.scrollHeight;
   }
 
+  // ── Shortcut actions ────────────────────────────────────
+  function _handleShortcut(action) {
+    switch (action) {
+      case 'show-omnibar':
+        _showAddr();
+        break;
+      case 'toggle-history':
+        _toggleHistory();
+        break;
+      case 'toggle-settings':
+        _toggleSettings();
+        break;
+      case 'toggle-sidecar':
+        _toggleSidecar('ai');
+        break;
+      case 'toggle-sidebar':
+        _toggleSidebar();
+        break;
+      default:
+        break;
+    }
+  }
+
   // ── Keyboard ─────────────────────────────────────────────
   function _setupKeys() {
     document.addEventListener('keydown', (e) => {
@@ -391,7 +562,7 @@
       else if (c && e.key === 'w') { e.preventDefault(); if (activeTabId) _tabs.close(activeTabId); }
       else if (c && e.key === 'h') { e.preventDefault(); _toggleHistory(); }
       else if (c && e.key === ',') { e.preventDefault(); _toggleSettings(); }
-      else if (c && e.shiftKey && e.key === 'A') { e.preventDefault(); _toggleSidecar(); }
+      else if (c && e.shiftKey && e.key === 'A') { e.preventDefault(); _toggleSidecar('ai'); }
       else if (c && e.key === 'b') { e.preventDefault(); _toggleSidebar(); }
     });
   }
@@ -404,6 +575,40 @@
     $sidebarToggle.addEventListener('click', _toggleSidebar);
     $newTabBtn.addEventListener('click', () => _tabs.create('about:blank'));
     _tabs.onUpdated?.((d) => _onTabsUpdated(d));
+    window.electronAPI?.on?.('app:shortcut', (_event, action) => _handleShortcut(action));
+    _shell.onOutput?.((payload) => {
+      if (!payload) return;
+      _appendShellLine(payload.stream || 'stdout', payload.text || '');
+    });
+    _shell.onStatus?.((state) => {
+      if (!state) return;
+      shellState = { ...shellState, ...state };
+      _renderShellState();
+    });
+    _shell.onClear?.(() => _clearShellOutput());
+
+    $sidecarModeAi?.addEventListener('click', () => _setShellMode('ai'));
+    $sidecarModeShell?.addEventListener('click', () => _setShellMode('shell'));
+    $islandAi.addEventListener('click', () => _toggleSidecar('ai'));
+    $islandShell.addEventListener('click', () => _toggleSidecar('shell'));
+    $shellRun?.addEventListener('click', _sendShellCommand);
+    $shellClear?.addEventListener('click', () => _shell.clear?.());
+    $shellStop?.addEventListener('click', async () => {
+      if (shellState.running) {
+        await _shell.stop?.();
+      } else {
+        await _ensureShellStarted();
+      }
+    });
+    $shellInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        _sendShellCommand();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        _hideSidecar();
+      }
+    });
 
     $addrInput.addEventListener('input', () => { addrActiveIdx = -1; _buildSuggestions($addrInput.value); });
     $addrInput.addEventListener('focus', () => { if ($addrInput.value) _buildSuggestions($addrInput.value); });
@@ -419,14 +624,13 @@
     $newTabInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); _nav($newTabInput.value); } });
     document.querySelectorAll('.new-tab-link').forEach(l => l.addEventListener('click', (e) => { e.preventDefault(); if (l.dataset.url) _nav(l.dataset.url); }));
 
-    $islandAi.addEventListener('click', _toggleSidecar);
     $islandOmnibar.addEventListener('click', _showAddr);
     $islandExt.addEventListener('click', _toggleExt);
     $sidecarHdr.addEventListener('mousedown', _startDrag);
     document.addEventListener('mousemove', _onDrag);
     document.addEventListener('mouseup', _endDrag);
     $sidecarConfig.addEventListener('click', _openAiConfig);
-    $sidecarClose.addEventListener('click', _toggleSidecar);
+    $sidecarClose.addEventListener('click', _hideSidecar);
     $chatSend.addEventListener('click', _sendChat);
     $chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendChat(); } });
     $chatInput.addEventListener('input', () => { $chatInput.style.height = 'auto'; $chatInput.style.height = Math.min($chatInput.scrollHeight, 100) + 'px'; });
@@ -439,6 +643,8 @@
     try { settings = await _storage.getSettings?.() || {}; } catch {}
     if (settings.theme) _applyTheme(settings.theme);
     if (settings.sidebarCollapsed) _setSidebar(true);
+    try { shellState = await _shell.state?.() || shellState; } catch {}
+    _renderShellState();
 
     try { const l = await _tabs.list?.(); if (l?.length) _onTabsUpdated(l); else _tabs.create('about:blank'); }
     catch { _tabs.create('about:blank'); }

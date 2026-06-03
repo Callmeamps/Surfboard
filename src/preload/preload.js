@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     create: (url) => ipcRenderer.invoke('tabs:create', url),
     close: (tabId) => ipcRenderer.invoke('tabs:close', tabId),
     switch: (tabId) => ipcRenderer.invoke('tabs:switch', tabId),
+    update: (tabId, patch) => ipcRenderer.invoke('tabs:update', tabId, patch),
     list: () => ipcRenderer.invoke('tabs:list'),
     registerWebview: (tabId, wcId) => ipcRenderer.send('tabs:register-webview', tabId, wcId),
     notifyVisibility: (tabId, visible) => ipcRenderer.invoke('tabs:notify-visibility', tabId, visible),
@@ -34,6 +35,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sidecar: {
     toggle: () => ipcRenderer.invoke('sidecar:toggle'),
     getState: () => ipcRenderer.invoke('sidecar:state'),
+  },
+
+  // ── Browser shell ────────────────────────────────────
+  shell: {
+    start: () => ipcRenderer.invoke('shell:start'),
+    state: () => ipcRenderer.invoke('shell:state'),
+    command: (commandLine) => ipcRenderer.invoke('shell:command', commandLine),
+    clear: () => ipcRenderer.invoke('shell:clear'),
+    stop: () => ipcRenderer.invoke('shell:stop'),
+    onOutput: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on('shell:output', listener);
+      return () => ipcRenderer.removeListener('shell:output', listener);
+    },
+    onStatus: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on('shell:status', listener);
+      return () => ipcRenderer.removeListener('shell:status', listener);
+    },
+    onClear: (callback) => {
+      const listener = () => callback();
+      ipcRenderer.on('shell:clear', listener);
+      return () => ipcRenderer.removeListener('shell:clear', listener);
+    },
   },
 
   // ── Storage (bookmarks, history, settings) ──────────

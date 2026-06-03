@@ -113,6 +113,20 @@ html, body {
 }
 .tab:hover .tab-close { color: var(--text-dim); }
 .tab-close:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+.tab-loader {
+  width: 8px; height: 8px; margin-left: auto; margin-right: 4px;
+  border-radius: 999px; background: var(--accent);
+  opacity: 0; transform: scale(0.8);
+  transition: opacity 0.15s, transform 0.15s;
+}
+.tab.loading .tab-loader {
+  opacity: 1;
+  animation: tabPulse 1s ease-in-out infinite;
+}
+@keyframes tabPulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
 
 /* ── Content Area ──────────────────────────────────────── */
 #content-area {
@@ -157,6 +171,40 @@ html, body {
   display: flex; align-items: center; justify-content: center; font-size: 16px;
 }
 .new-tab-link .nl-label { font-size: 11px; max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.shortcut-dropdown {
+  width: min(560px, 70vw);
+  margin-top: 2px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.shortcut-dropdown > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 12px;
+}
+.shortcut-dropdown > summary::-webkit-details-marker { display: none; }
+.shortcut-hint { color: var(--text-faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+.shortcut-list { border-top: 1px solid var(--border); padding: 8px 0; }
+.shortcut-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 7px 14px; font-size: 12px; color: var(--text-dim);
+}
+.shortcut-row span:first-child { color: var(--text); }
+.shortcut-keys { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.shortcut-keys kbd {
+  padding: 2px 6px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); font-size: 11px; line-height: 1.2;
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,0.04);
+}
 
 /* ── Island ────────────────────────────────────────────── */
 #island {
@@ -232,8 +280,18 @@ html, body {
 }
 #sidecar-header:active { cursor: grabbing; }
 #sidecar-header-left { display: flex; align-items: center; gap: 6px; }
-#sidecar-header-right { display: flex; align-items: center; gap: 2px; }
+#sidecar-header-right { display: flex; align-items: center; gap: 8px; }
 .sidecar-drag-icon { color: var(--text-faint); font-size: 10px; }
+#sidecar-mode-toggle {
+  display: flex; gap: 4px; padding: 2px; border: 1px solid var(--border);
+  border-radius: 999px; background: var(--bg);
+}
+.sidecar-mode-btn {
+  height: 22px; padding: 0 10px; border: none; border-radius: 999px;
+  background: transparent; color: var(--text-dim); cursor: pointer;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+}
+.sidecar-mode-btn.active { background: var(--accent); color: #fff; }
 .sidecar-hdr-btn {
   width: 24px; height: 24px; border: none; border-radius: 4px;
   background: transparent; color: var(--text-dim); cursor: pointer;
@@ -241,7 +299,41 @@ html, body {
   transition: background 0.1s, color 0.1s;
 }
 .sidecar-hdr-btn:hover { background: var(--bg-hover); color: var(--text); }
+.shell-status { color: var(--text-faint); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+.shell-status.active { color: var(--accent); }
 #sidecar-content { flex: 1; overflow-y: auto; padding: 12px; min-height: 100px; }
+.sidecar-panel { display: flex; flex-direction: column; gap: 10px; }
+.sidecar-panel.hidden { display: none; }
+#shell-output {
+  min-height: 180px; max-height: 44vh; overflow-y: auto;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+}
+.shell-line { margin: 0 0 4px; }
+.shell-line.stdout { color: var(--text); }
+.shell-line.stderr { color: #fca5a5; }
+.shell-line.command { color: var(--accent); }
+.shell-line.system { color: var(--text-faint); }
+#shell-input-wrap {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 8px 10px;
+}
+#shell-prompt { color: var(--accent); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+#shell-input {
+  flex: 1; border: none; background: transparent; color: var(--text);
+  font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  outline: none;
+}
+#shell-run {
+  border: none; border-radius: 8px; padding: 6px 10px; background: var(--accent);
+  color: #fff; cursor: pointer; font-size: 12px; font-weight: 600;
+}
+#shell-run:hover { background: var(--accent-hover); }
+#shell-actions { display: flex; justify-content: flex-end; gap: 8px; }
+#shell-actions .sidecar-hdr-btn { width: auto; min-width: 52px; padding: 0 10px; }
+#shell-hint { color: var(--text-faint); font-size: 11px; line-height: 1.4; }
 
 #chat-threads { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
 .chat-thread-item {
