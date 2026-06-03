@@ -511,3 +511,101 @@ html, body {
 .ai-config-row label { font-size: 12px; color: var(--text-dim); }
 .ai-config-row .settings-input, .ai-config-row .settings-select, .ai-config-row .settings-textarea { min-width: 0; width: 100%; }
 .ai-config-hint { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+
+/* ── Bookmarks Header ──────────────────────────────────── */
+#bookmarks-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px 4px; flex-shrink: 0;
+}
+.bookmarks-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); }
+.bookmarks-actions { display: flex; gap: 2px; }
+.bm-icon-btn {
+  width: 24px; height: 24px; border: none; border-radius: 4px;
+  background: transparent; color: var(--text-faint); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; transition: background 0.1s, color 0.1s;
+}
+.bm-icon-btn:hover { background: var(--bg-hover); color: var(--text); }
+.bm-icon-btn svg { width: 12px; height: 12px; }
+
+#bookmarks-search-wrap { padding: 0 8px 4px; flex-shrink: 0; }
+#bookmarks-search {
+  width: 100%; height: 24px; padding: 0 8px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 4px; color: var(--text);
+  font-size: 11px; font-family: inherit; outline: none;
+}
+#bookmarks-search:focus { border-color: var(--accent); }
+#bookmarks-search::placeholder { color: var(--text-faint); }
+
+/* ── Bookmark Context Menu ─────────────────────────────── */
+.bm-contextmenu {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  padding: 4px; min-width: 140px;
+}
+.bm-ctx-item {
+  padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;
+  color: var(--text); display: flex; align-items: center; gap: 8px;
+}
+.bm-ctx-item:hover { background: var(--bg-hover); }
+
+/* ── Bookmark Dialog ───────────────────────────────────── */
+.bm-dialog-overlay {
+  position: fixed; inset: 0; z-index: 600;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+}
+.bm-dialog-overlay.hidden { display: none; }
+.bm-dialog {
+  width: 400px; background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.bm-dialog-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+  font-size: 14px; font-weight: 600;
+}
+.bm-dialog-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.bm-dialog-body .bm-label { font-size: 12px; color: var(--text-dim); }
+.bm-dialog-body .bm-input {
+  width: 100%; height: 34px; padding: 0 10px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+  font-size: 13px; font-family: inherit; outline: none;
+}
+.bm-dialog-body .bm-input:focus { border-color: var(--accent); }
+.bm-dialog-footer {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 16px; border-top: 1px solid var(--border);
+}
+.bm-btn {
+  height: 32px; padding: 0 16px; border: none; border-radius: 6px;
+  font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.bm-btn-ghost { background: transparent; color: var(--text-dim); }
+.bm-btn-ghost:hover { background: var(--bg-hover); color: var(--text); }
+.bm-btn-primary { background: var(--accent); color: #fff; }
+.bm-btn-primary:hover { background: var(--accent-hover); }
+
+/* ── Toast ─────────────────────────────────────────────── */
+#toast-container {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+  z-index: 700; display: flex; flex-direction: column; gap: 6px; pointer-events: none;
+}
+.toast {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 16px; font-size: 12px; color: var(--text);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  opacity: 0; transform: translateY(8px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+/* ── History Group Header ──────────────────────────────── */
+.history-group-header {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-faint);
+  padding: 8px 12px 4px; margin-top: 4px;
+  border-bottom: 1px solid var(--border);
+}
