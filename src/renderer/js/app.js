@@ -220,8 +220,21 @@
 
   function _renderTabs() {
     $tabList.innerHTML = '';
-    tabs.forEach((tab) => {
+    const entries = Array.from(tabs.entries());
+    let activeIdx = entries.findIndex(([, t]) => t.active);
+
+    entries.forEach(([id, tab], idx) => {
       const el = _buildTabEl(tab);
+      if (idx < activeIdx) {
+        el.style.zIndex = activeIdx - idx + 1;
+        el.dataset.stackPos = 'above';
+      } else if (idx === activeIdx) {
+        el.style.zIndex = 100;
+        el.dataset.stackPos = 'active';
+      } else {
+        el.style.zIndex = entries.length - idx + 1;
+        el.dataset.stackPos = 'below';
+      }
       el.addEventListener('click', (e) => {
         if (e.target.closest('.tab-close')) { _tabs.close(tab.id); return; }
         _tabs.switch(tab.id);
