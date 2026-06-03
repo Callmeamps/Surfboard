@@ -1,5 +1,5 @@
 {
-  "name": "riced-chromium",
+  "name": "surfboard",
   "version": "0.1.0",
   "description": "A riced Electron-based browser with vertical tabs, sidebar, and AI sidecar",
   "main": "app.js",
