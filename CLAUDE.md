@@ -73,3 +73,17 @@ Surfboard is an Electron-based browser with:
 - Use `bd` (beads) for all issue tracking
 - Non-interactive shell flags required (`cp -f`, `mv -f`, `rm -f`)
 - Co-author commits: `Co-Authored-By: Oz <oz-agent@warp.dev>`
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues. See [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at repo root. See [`docs/agents/domain.md`](docs/agents/domain.md).

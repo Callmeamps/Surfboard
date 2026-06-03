@@ -2,7 +2,7 @@
 
 ## Active
 
-(none)
+- Multi-profile support (deferred — depends on storage refactoring)
 
 ## Blocked
 
@@ -25,11 +25,11 @@
 - [x] Extract PaperTM module (papertm.js) — tab logic consolidated (beads ric-39o + ric-klx)
 - [x] Ctrl+Tab / Ctrl+Shift+Tab cycling (PaperWM-style strip nav)
 - [x] Wire AI backend — sendChat calls configured API (OpenAI/Anthropic/Ollama)
+- [x] Extension loader IPC tests — 21 new tests, 87 total (bead riced-chromium-pc1)
+- [x] Extract settings page module — src/renderer/js/settings.js (bead riced-chromium-8kq)
+- [x] Address bar omnibox — fuzzy match + DDG/Brave API suggestions (bead riced-chromium-hi1)
+- [x] Bookmark/history persistence UI — header, search, dialog, island button, import/export (bead riced-chromium-37i)
 
 ## Remaining
 
-- Extension loader testing
-- Address bar / omnibox with search suggestions
-- Persistent bookmark/history storage enhancements
-- Settings page builder
-- Multi-profile support
+- Multi-profile support (deferred)
