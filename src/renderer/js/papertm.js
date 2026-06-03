@@ -16,6 +16,7 @@
   let _tabsRaf = null;         // debounce handle
   let _activeTabId = null;
   let _tabs = new Map();
+  let _minimapContainer = null;
   let _deps = null;
 
   function _queueTabs() {
@@ -157,6 +158,20 @@
     _showActiveWebview();
   }
 
+  function _renderMinimap() {
+    if (!_minimapContainer) return;
+    _minimapContainer.innerHTML = '';
+    const entries = Array.from(_tabs.entries());
+    entries.forEach(([id, tab]) => {
+      const el = document.createElement('div');
+      el.className = 'minimap-item' + (tab.active ? ' active' : '');
+      el.dataset.tabId = id;
+      el.title = tab.title || tab.url || 'New Tab';
+      el.addEventListener('click', () => { _deps.tabsIPC.switch(id); });
+      _minimapContainer.appendChild(el);
+    });
+  }
+
   function _updateNTP() {
     const t = _tabs.get(_activeTabId);
     if (!t || t.url === 'about:blank') {
@@ -172,6 +187,7 @@
 
     init(deps) {
       _deps = deps;
+      _minimapContainer = deps.minimapContainer;
     },
 
     onTabsUpdated(data) {
@@ -186,6 +202,7 @@
       _renderTabs();
       _renderWebviews();
       _updateNTP();
+      _renderMinimap();
     },
 
     getActiveTabId() {
