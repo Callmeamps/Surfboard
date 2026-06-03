@@ -124,26 +124,7 @@ html, body {
 }
 #webview-container webview {
   flex: 1; width: 100%; min-height: 0;
-  display: none;
-}
-#webview-container webview.active {
-  display: flex;
-}
-
-/* Webview placeholder — distant tab LOD */
-.webview-placeholder {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  background: var(--bg); color: var(--text-dim);
-  cursor: pointer; user-select: none;
-}
-.webview-placeholder .ph-title {
-  font-size: 16px; font-weight: 600; color: var(--text);
-  margin-bottom: 6px; max-width: 80%; text-align: center;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.webview-placeholder .ph-hint {
-  font-size: 12px; color: var(--text-faint);
+  /* display controlled via inline style: flex=active, none=hidden */
 }
 
 /* ── New Tab Page ──────────────────────────────────────── */

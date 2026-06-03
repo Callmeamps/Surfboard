@@ -1,12 +1,8 @@
 /**
- * RicedChromium — Unified Renderer v3 (Performance)
+ * RicedChromium — Unified Renderer v4
  *
- * Game-dev optimization strategies applied:
- *   - LOD (Level of Detail): webview pool, only active tab is live
- *   - Object pooling: webview elements reused, LRU eviction
- *   - Streaming: lazy webview creation on tab switch
- *   - Debouncing: renderTabs batched via rAF
- *   - Frustum culling: ad/tracker network blocking (main process)
+ * Simple tab/webview model: one webview per tab, show active, hide rest.
+ * No pooling, no LOD — just works.
  */
 (function () {
   'use strict';
@@ -55,57 +51,26 @@
   let sidebarCollapsed = false;
   let dragState = null;
 
-  // ── Performance: Webview LOD Pool ─────────────────────────
-  // Like game LOD: only render what's "visible" in the viewport.
-  // Active tab → live webview (60fps, unthrottled)
-  // Pool max  → 3 webviews, LRU eviction for distant tabs
-  // Evicted   → placeholder div (tiny RAM, instant switch-back)
-  const WV_POOL = 3;
-  const _wvPool = new Map();  // tabId → <webview>
-  const _wvLru  = [];         // most-recent-first tab IDs
-  let _tabsRaf  = null;       // debounce handle
+  // ── Webview management ──────────────────────────────────
+  // One webview per tab. Active tab's webview is visible, rest hidden.
+  const _wvMap = new Map();  // tabId → <webview>
+  let _tabsRaf  = null;       // debounce handle for tab bar renders
 
   function _queueTabs() {
     if (_tabsRaf) return;
     _tabsRaf = requestAnimationFrame(() => { _tabsRaf = null; _renderTabs(); });
   }
 
-  function _evictWv() {
-    if (_wvLru.length <= WV_POOL) return;
-    for (let i = _wvLru.length - 1; i >= 0; i--) {
-      const vid = _wvLru[i];
-      if (vid === activeTabId) continue;
-      const wv = _wvPool.get(vid);
-      if (!wv) continue;
-      const ph = document.createElement('div');
-      ph.className = 'webview-placeholder';
-      ph.dataset.tabId = vid;
-      const t = tabs.get(vid);
-      ph.innerHTML = `<div class="ph-title">${t?.title || 'Tab'}</div><div class="ph-hint">Click tab to reload</div>`;
-      wv.replaceWith(ph);
-      _wvPool.delete(vid);
-      _wvLru.splice(_wvLru.indexOf(vid), 1);
-      return;
-    }
-  }
+  function _ensureWebview(tabId, url) {
+    if (_wvMap.has(tabId)) return _wvMap.get(tabId);
 
-  function _ensureWv(tabId, url) {
-    // Pool hit → move to front
-    if (_wvPool.has(tabId)) {
-      _wvLru.splice(_wvLru.indexOf(tabId), 1);
-      _wvLru.unshift(tabId);
-      return _wvPool.get(tabId);
-    }
-
-    // Evict LRU if pool full
-    _evictWv();
-
-    // Create new webview
     const wv = document.createElement('webview');
     wv.dataset.tabId = tabId;
     wv.setAttribute('partition', 'persist:riced');
     wv.setAttribute('allowpopups', '');
     wv.src = url || 'about:blank';
+    // Start hidden — _showActiveWebview will reveal
+    wv.style.display = 'none';
 
     const _t = () => tabs.get(tabId);
     wv.addEventListener('did-start-loading',  () => { const t = _t(); if (t) t.loading = true;  _queueTabs(); });
@@ -131,13 +96,15 @@
     });
     wv.addEventListener('new-window', (e) => { e.preventDefault(); if (e.url && e.url !== 'about:blank') _tabs.create(e.url); });
 
-    // Swap placeholder or append hidden
-    const ph = $wvContainer.querySelector(`.webview-placeholder[data-tab-id="${tabId}"]`);
-    if (ph) { ph.replaceWith(wv); } else { wv.style.display = 'none'; $wvContainer.appendChild(wv); }
-
-    _wvPool.set(tabId, wv);
-    _wvLru.unshift(tabId);
+    $wvContainer.appendChild(wv);
+    _wvMap.set(tabId, wv);
     return wv;
+  }
+
+  function _showActiveWebview() {
+    _wvMap.forEach((wv, id) => {
+      wv.style.display = (id === activeTabId) ? 'flex' : 'none';
+    });
   }
 
   // ── IPC shorthand ────────────────────────────────────────
@@ -160,7 +127,7 @@
   function _nav(text) {
     text = text.trim(); if (!text) return;
     text = _isUrl(text) ? _normUrl(text) : 'https://www.google.com/search?q=' + encodeURIComponent(text);
-    const wv = _wvPool.get(activeTabId);
+    const wv = _wvMap.get(activeTabId);
     if (wv) { wv.src = text; _hideAddr(); return; }
     _tabs.create(text); _hideAddr();
   }
@@ -220,28 +187,20 @@
   }
 
   function _renderWebviews() {
-    // Clean up stale webviews and placeholders
-    $wvContainer.querySelectorAll('webview[data-tab-id]').forEach((wv) => {
-      if (!tabs.has(wv.dataset.tabId)) {
+    // Remove closed tabs' webviews
+    _wvMap.forEach((wv, id) => {
+      if (!tabs.has(id)) {
         try { wv.stop(); } catch {}
         wv.remove();
-        _wvPool.delete(wv.dataset.tabId);
-        _wvLru.splice(_wvLru.indexOf(wv.dataset.tabId), 1);
+        _wvMap.delete(id);
       }
     });
-    $wvContainer.querySelectorAll('.webview-placeholder]').forEach((ph) => {
-      if (!tabs.has(ph.dataset.tabId)) ph.remove();
-    });
 
-    // Active tab → ensure live webview
-    const at = tabs.get(activeTabId);
-    if (at) {
-      _ensureWv(at.id, at.url);
-      // Show active, hide rest
-      $wvContainer.querySelectorAll('webview[data-tab-id]').forEach((w) => {
-        w.style.display = (w.dataset.tabId === activeTabId) ? 'flex' : 'none';
-      });
-    }
+    // Create webview for new tabs, show active, hide rest
+    tabs.forEach((tab) => {
+      _ensureWebview(tab.id, tab.url);
+    });
+    _showActiveWebview();
   }
 
   function _onTabsUpdated(data) {
