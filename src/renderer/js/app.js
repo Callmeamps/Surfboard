@@ -12,6 +12,7 @@
   const $sidebar       = document.getElementById('sidebar');
   const $sidebarToggle = document.getElementById('sidebar-toggle');
   const $tabList       = document.getElementById('tab-list');
+  const $minimapContainer = document.getElementById('minimap-container');
   const $newTabBtn     = document.getElementById('new-tab-btn');
   const $bookmarks     = document.getElementById('bookmarks-list');
   const $wvContainer   = document.getElementById('webview-container');
@@ -496,9 +497,9 @@
         $bookmarks.appendChild(el);
       });
     });
-  }
+});
 
-// ── Settings ─────────────────────────────────────────────
+  // ── Settings ─────────────────────────────────────────────
   // Delegated to settings.js module
   function _toggleSettings() { window.SettingsModule.toggle(); }
   function _openAiConfig() { window.SettingsModule.openAiConfig(); }
@@ -604,7 +605,7 @@
     $winClose.addEventListener('click', () => _win.close?.());
     $sidebarToggle.addEventListener('click', _toggleSidebar);
     $newTabBtn.addEventListener('click', () => _tabs.create('about:blank'));
-    window.PaperTM?.init({ tabList: $tabList, wvContainer: $wvContainer, addrInput: $addrInput, ntp: $newTabPage, storage: _storage, tabsIPC: _tabs });
+    window.PaperTM?.init({ tabList: $tabList, wvContainer: $wvContainer, addrInput: $addrInput, ntp: $newTabPage, storage: _storage, tabsIPC: _tabs, minimapContainer: $minimapContainer });
     _tabs.onUpdated?.((d) => window.PaperTM?.onTabsUpdated(d));
     window.electronAPI?.on?.('app:shortcut', (_event, action) => _handleShortcut(action));
     _shell.onOutput?.((payload) => {
