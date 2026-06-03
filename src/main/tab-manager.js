@@ -2,11 +2,17 @@ const { BrowserWindow } = require('electron');
 const lifecycle = require('./tab-lifecycle');
 
 const tabs = new Map();
+const groups = new Map();
 let activeTabId = null;
 let idCounter = 0;
+let groupIdCounter = 0;
 
 function generateId() {
   return `tab-${++idCounter}-${Date.now().toString(36)}`;
+}
+
+function generateGroupId() {
+  return `group-${++groupIdCounter}-${Date.now().toString(36)}`;
 }
 
 function broadcastUpdate() {
@@ -32,6 +38,7 @@ function create(url = 'about:blank') {
     favicon: '',
     active: true,
     loading: false,
+    groupId: null,
   };
 
   tabs.set(id, tab);
@@ -45,6 +52,16 @@ function create(url = 'about:blank') {
 
 function close(tabId) {
   if (!tabs.has(tabId)) return null;
+
+  // Remove from group if assigned
+  const closingTab = tabs.get(tabId);
+  if (closingTab.groupId && groups.has(closingTab.groupId)) {
+    const group = groups.get(closingTab.groupId);
+    group.tabIds = group.tabIds.filter(id => id !== tabId);
+    if (group.tabIds.length === 0) {
+      groups.delete(closingTab.groupId);
+    }
+  }
 
   tabs.delete(tabId);
 
@@ -100,6 +117,86 @@ function getActiveId() {
   return activeTabId;
 }
 
+// ── Tab Groups ──────────────────────────────────────────
+
+function createGroup(title = 'Group') {
+  const groupId = generateGroupId();
+  const group = {
+    id: groupId,
+    title,
+    collapsed: false,
+    tabIds: [],
+  };
+  groups.set(groupId, group);
+  broadcastUpdate();
+  return { ...group };
+}
+
+function assignToGroup(tabId, groupId) {
+  if (!tabs.has(tabId) || !groups.has(groupId)) return null;
+
+  // Remove from previous group
+  const tab = tabs.get(tabId);
+  if (tab.groupId && groups.has(tab.groupId)) {
+    const prevGroup = groups.get(tab.groupId);
+    prevGroup.tabIds = prevGroup.tabIds.filter(id => id !== tabId);
+  }
+
+  tab.groupId = groupId;
+  const group = groups.get(groupId);
+  if (!group.tabIds.includes(tabId)) {
+    group.tabIds.push(tabId);
+  }
+
+  broadcastUpdate();
+  return { ...tab };
+}
+
+function removeFromGroup(tabId) {
+  const tab = tabs.get(tabId);
+  if (!tab || !tab.groupId) return null;
+
+  const groupId = tab.groupId;
+  if (groups.has(groupId)) {
+    const group = groups.get(groupId);
+    group.tabIds = group.tabIds.filter(id => id !== tabId);
+    // Clean up empty groups
+    if (group.tabIds.length === 0) {
+      groups.delete(groupId);
+    }
+  }
+
+  tab.groupId = null;
+  broadcastUpdate();
+  return { ...tab };
+}
+
+function toggleGroupCollapse(groupId) {
+  const group = groups.get(groupId);
+  if (!group) return null;
+  group.collapsed = !group.collapsed;
+  broadcastUpdate();
+  return { ...group };
+}
+
+function deleteGroup(groupId) {
+  const group = groups.get(groupId);
+  if (!group) return false;
+  // Unassign all tabs from this group
+  for (const tabId of group.tabIds) {
+    if (tabs.has(tabId)) {
+      tabs.get(tabId).groupId = null;
+    }
+  }
+  groups.delete(groupId);
+  broadcastUpdate();
+  return true;
+}
+
+function getGroups() {
+  return [...groups.values()].map(g => ({ ...g }));
+}
+
 module.exports = {
   create,
   close,
@@ -108,4 +205,10 @@ module.exports = {
   get,
   getAll,
   getActiveId,
+  createGroup,
+  assignToGroup,
+  removeFromGroup,
+  toggleGroupCollapse,
+  deleteGroup,
+  getGroups,
 };

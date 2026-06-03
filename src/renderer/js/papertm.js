@@ -16,6 +16,7 @@
   let _tabsRaf = null;         // debounce handle
   let _activeTabId = null;
   let _tabs = new Map();
+  let _groups = new Map();     // groupId → { title, collapsed, tabIds }
   let _deps = null;
 
   function _queueTabs() {
@@ -90,10 +91,46 @@
     });
   }
 
+  function _buildGroupHeader(groupId) {
+    const group = _groups.get(groupId);
+    if (!group) return null;
+
+    const el = document.createElement('div');
+    el.className = 'tab-group-header' + (group.collapsed ? ' collapsed' : '');
+    el.dataset.groupId = groupId;
+
+    const toggle = document.createElement('span');
+    toggle.className = 'group-toggle';
+    toggle.textContent = group.collapsed ? '▶' : '▼';
+    el.appendChild(toggle);
+
+    const title = document.createElement('span');
+    title.className = 'group-title';
+    title.textContent = group.title || 'Group';
+    el.appendChild(title);
+
+    const count = document.createElement('span');
+    count.className = 'group-count';
+    count.textContent = `(${group.tabIds.length})`;
+    el.appendChild(count);
+
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      _deps.tabsIPC.toggleGroupCollapse?.(groupId);
+    });
+
+    return el;
+  }
+
   function _buildTabEl(tab) {
     const el = document.createElement('div');
-    el.className = 'tab' + (tab.active ? ' active' : '') + (tab.loading ? ' loading' : '');
+    const classes = ['tab'];
+    if (tab.active) classes.push('active');
+    if (tab.loading) classes.push('loading');
+    if (tab.groupId) classes.push('grouped');
+    el.className = classes.join(' ');
     el.dataset.tabId = tab.id;
+    if (tab.groupId) el.dataset.groupId = tab.groupId;
 
     const img = document.createElement('img');
     img.className = 'tab-favicon'; img.width = 16; img.height = 16; img.alt = '';
@@ -118,12 +155,78 @@
     return el;
   }
 
+  function _showTabContextMenu(e, tab) {
+    const existing = document.querySelector('.tab-contextmenu');
+    if (existing) existing.remove();
+
+    const menu = document.createElement('div');
+    menu.className = 'tab-contextmenu';
+    menu.style.cssText = `position:fixed;top:${e.clientY}px;left:${e.clientX}px;z-index:500;`;
+
+    if (tab.groupId) {
+      const removeItem = document.createElement('div');
+      removeItem.className = 'tab-ctx-item';
+      removeItem.textContent = '📤 Remove from Group';
+      removeItem.addEventListener('click', () => {
+        menu.remove();
+        _deps.tabsIPC.removeFromGroup?.(tab.id);
+      });
+      menu.appendChild(removeItem);
+    } else {
+      const groupList = Array.from(_groups.values());
+      if (groupList.length > 0) {
+        groupList.forEach(group => {
+          const item = document.createElement('div');
+          item.className = 'tab-ctx-item';
+          item.textContent = `📁 Add to: ${group.title}`;
+          item.addEventListener('click', () => {
+            menu.remove();
+            _deps.tabsIPC.assignToGroup?.(tab.id, group.id);
+          });
+          menu.appendChild(item);
+        });
+      }
+      const newGroupItem = document.createElement('div');
+      newGroupItem.className = 'tab-ctx-item';
+      newGroupItem.textContent = '🆕 New Group';
+      newGroupItem.addEventListener('click', () => {
+        menu.remove();
+        const result = _deps.tabsIPC.createGroup?.('Group');
+        if (result) {
+          const gid = result.id || result;
+          _deps.tabsIPC.assignToGroup?.(tab.id, gid);
+        }
+      });
+      menu.appendChild(newGroupItem);
+    }
+
+    document.body.appendChild(menu);
+    const close = () => { menu.remove(); document.removeEventListener('click', close); };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  }
+
   function _renderTabs() {
     _deps.tabList.innerHTML = '';
     const entries = Array.from(_tabs.entries());
     let activeIdx = entries.findIndex(([, t]) => t.active);
 
+    // Track rendered groups to avoid duplicate headers
+    const renderedGroups = new Set();
+
     entries.forEach(([id, tab], idx) => {
+      // Render group header before first tab in group
+      if (tab.groupId && !renderedGroups.has(tab.groupId)) {
+        renderedGroups.add(tab.groupId);
+        const header = _buildGroupHeader(tab.groupId);
+        if (header) _deps.tabList.appendChild(header);
+      }
+
+      // Skip tabs in collapsed groups (except active tab)
+      if (tab.groupId) {
+        const group = _groups.get(tab.groupId);
+        if (group?.collapsed && !tab.active) return;
+      }
+
       const el = _buildTabEl(tab);
       if (idx < activeIdx) {
         el.style.zIndex = activeIdx - idx + 1;
@@ -138,6 +241,10 @@
       el.addEventListener('click', (e) => {
         if (e.target.closest('.tab-close')) { _deps.tabsIPC.close(tab.id); return; }
         _deps.tabsIPC.switch(tab.id);
+      });
+      el.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        _showTabContextMenu(e, tab);
       });
       _deps.tabList.appendChild(el);
     });
@@ -186,6 +293,14 @@
       _renderTabs();
       _renderWebviews();
       _updateNTP();
+    },
+
+    setGroups(groupsData) {
+      _groups.clear();
+      if (Array.isArray(groupsData)) {
+        groupsData.forEach(g => _groups.set(g.id, { ...g }));
+      }
+      _renderTabs();
     },
 
     getActiveTabId() {

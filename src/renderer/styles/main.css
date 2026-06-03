@@ -602,6 +602,44 @@ html, body {
 }
 .toast.show { opacity: 1; transform: translateY(0); }
 
+/* ── Tab Group Header ─────────────────────────────────── */
+.tab-group-header {
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 8px; margin: 2px 2px 0 2px;
+  font-size: 10px; font-weight: 600; color: var(--text-dim);
+  cursor: pointer; border-radius: 4px;
+  transition: background 0.1s;
+  user-select: none;
+  flex-shrink: 0;
+}
+.tab-group-header:hover { background: var(--bg-hover); color: var(--text); }
+.tab-group-header .group-toggle {
+  font-size: 8px; width: 10px; text-align: center;
+  transition: transform 0.2s;
+}
+.tab-group-header.collapsed .group-toggle { transform: rotate(0deg); }
+.tab-group-header .group-title { flex: 1; }
+.tab-group-header .group-count {
+  font-size: 9px; color: var(--text-faint); font-weight: normal;
+}
+
+.tab.grouped {
+  margin-left: 12px;
+  width: calc(100% - 14px);
+}
+
+/* ── Tab Context Menu ──────────────────────────────────── */
+.tab-contextmenu {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  padding: 4px; min-width: 180px;
+}
+.tab-ctx-item {
+  padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;
+  color: var(--text); display: flex; align-items: center; gap: 8px;
+}
+.tab-ctx-item:hover { background: var(--bg-hover); }
+
 /* ── History Group Header ──────────────────────────────── */
 .history-group-header {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
