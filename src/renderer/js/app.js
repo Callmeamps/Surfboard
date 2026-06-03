@@ -54,8 +54,6 @@
   const $sidebarSettingsBtn = document.getElementById('sidebar-settings-btn');
 
   // ── State ────────────────────────────────────────────────
-  let tabs = new Map();
-  let activeTabId = null;
   let suggestions = [];
   let addrActiveIdx = -1;
   let historyEntries = [];
@@ -64,86 +62,7 @@
   let sidecarMode = 'ai';
   let shellState = { running: false, lastCommand: '', allowedCommands: [] };
   let dragState = null;
-
-  // ── Webview management ──────────────────────────────────
-  // One webview per tab. Active tab's webview is visible, rest hidden.
-  const _wvMap = new Map();  // tabId → <webview>
-  let _tabsRaf  = null;       // debounce handle for tab bar renders
-
-  function _queueTabs() {
-    if (_tabsRaf) return;
-    _tabsRaf = requestAnimationFrame(() => { _tabsRaf = null; _renderTabs(); });
-  }
-
-  function _ensureWebview(tabId, url) {
-    if (_wvMap.has(tabId)) return _wvMap.get(tabId);
-
-    const wv = document.createElement('webview');
-    wv.dataset.tabId = tabId;
-    wv.setAttribute('partition', 'persist:riced');
-    wv.setAttribute('allowpopups', '');
-    wv.src = url || 'about:blank';
-    // Start hidden — _showActiveWebview will reveal
-    wv.style.display = 'none';
-
-    const _t = () => tabs.get(tabId);
-    const _syncTab = (patch) => {
-      const t = _t();
-      if (!t) return;
-      Object.assign(t, patch);
-      _tabs.update?.(tabId, patch).catch(() => {});
-      _queueTabs();
-    };
-    wv.addEventListener('did-start-loading',  () => { _syncTab({ loading: true }); });
-    wv.addEventListener('did-stop-loading',   () => { _syncTab({ loading: false }); });
-    wv.addEventListener('did-fail-load',       () => { _syncTab({ loading: false }); });
-    wv.addEventListener('dom-ready', () => {
-      if (!wv.dataset.registered) {
-        const wcId = wv.getWebContentsId?.();
-        if (wcId) {
-          _tabs.registerWebview?.(tabId, wcId);
-          wv.dataset.registered = '1';
-        }
-      }
-    });
-    wv.addEventListener('page-title-updated', (e) => {
-      const title = e.title || 'New Tab';
-      const t = _t();
-      if (t && tabId === activeTabId) $addrInput.value = t.url || '';
-      _syncTab({ title });
-    });
-    wv.addEventListener('page-favicon-updated', (e) => {
-      if (e.favicons?.[0]) _syncTab({ favicon: e.favicons[0] });
-    });
-    wv.addEventListener('did-navigate', (e) => {
-      const t = _t(); if (!t) return;
-      const url = e.url;
-      if (tabId === activeTabId) $addrInput.value = url;
-      _syncTab({ url });
-      _updateNTP();
-      if (url && url !== 'about:blank' && t.title) {
-        historyEntries = historyEntries.filter(h => h.url !== url);
-        historyEntries.unshift({ url, title: t.title, time: Date.now() });
-        _storage.addHistoryEntry?.({ url, title: t.title }).catch(() => {});
-      }
-    });
-    wv.addEventListener('did-navigate-in-page', (e) => {
-      const url = e.url;
-      if (tabId === activeTabId) $addrInput.value = url;
-      _syncTab({ url });
-    });
-    wv.addEventListener('new-window', (e) => { e.preventDefault(); if (e.url && e.url !== 'about:blank') _tabs.create(e.url); });
-
-    $wvContainer.appendChild(wv);
-    _wvMap.set(tabId, wv);
-    return wv;
-  }
-
-  function _showActiveWebview() {
-    _wvMap.forEach((wv, id) => {
-      wv.style.display = (id === activeTabId) ? 'flex' : 'none';
-    });
-  }
+  let chatHistory = [];
 
   // ── IPC shorthand ────────────────────────────────────────
   const _storage = window.electronAPI?.storage || {};
@@ -153,7 +72,6 @@
   const _shell   = window.electronAPI?.shell || {};
 
   // ── Helpers ──────────────────────────────────────────────
-  function _favicon(u) { try { return new URL(u).origin + '/favicon.ico'; } catch { return null; } }
   function _isUrl(t) { return /^https?:\/\//i.test(t) || (/^[^\s]+\.[^\s]{2,}/.test(t) && !t.includes(' ')); }
   function _normUrl(t) { return /^https?:\/\//i.test(t) ? t : 'https://' + t; }
   function _fmtTime(ts) {
@@ -166,8 +84,8 @@
   function _nav(text) {
     text = text.trim(); if (!text) return;
     text = _isUrl(text) ? _normUrl(text) : 'https://www.google.com/search?q=' + encodeURIComponent(text);
-    const wv = _wvMap.get(activeTabId);
-    if (wv) { wv.src = text; _hideAddr(); return; }
+    const navigated = window.PaperTM?.navigate(text);
+    if (navigated) { _hideAddr(); return; }
     _tabs.create(text); _hideAddr();
   }
 
@@ -180,99 +98,6 @@
     try { await _storage.updateSettings?.({ sidebarCollapsed: c }); } catch {}
   }
   async function _toggleSidebar() { await _setSidebar(!sidebarCollapsed); }
-
-  // ── New Tab Page ─────────────────────────────────────────
-  function _showNTP() { $newTabPage.classList.remove('hidden'); }
-  function _hideNTP() { $newTabPage.classList.add('hidden'); }
-  function _updateNTP() {
-    const t = tabs.get(activeTabId);
-    (!t || t.url === 'about:blank') ? _showNTP() : _hideNTP();
-  }
-
-  // ── Tabs rendering ───────────────────────────────────────
-  function _buildTabEl(tab) {
-    const el = document.createElement('div');
-    el.className = 'tab' + (tab.active ? ' active' : '') + (tab.loading ? ' loading' : '');
-    el.dataset.tabId = tab.id;
-
-    const img = document.createElement('img');
-    img.className = 'tab-favicon'; img.width = 16; img.height = 16; img.alt = '';
-    const fh = tab.favicon || _favicon(tab.url);
-    if (fh) { img.src = fh; img.onerror = () => img.classList.add('hidden'); }
-    else img.classList.add('hidden');
-    el.appendChild(img);
-
-    const title = document.createElement('span');
-    title.className = 'tab-title';
-    title.textContent = tab.title || tab.url || 'New Tab';
-    el.appendChild(title);
-
-    const loader = document.createElement('span');
-    loader.className = 'tab-loader';
-    loader.setAttribute('aria-hidden', 'true');
-    el.appendChild(loader);
-
-    const close = document.createElement('button');
-    close.className = 'tab-close no-drag'; close.textContent = '✕'; close.setAttribute('aria-label', 'Close tab');
-    el.appendChild(close);
-    return el;
-  }
-
-  function _renderTabs() {
-    $tabList.innerHTML = '';
-    const entries = Array.from(tabs.entries());
-    let activeIdx = entries.findIndex(([, t]) => t.active);
-
-    entries.forEach(([id, tab], idx) => {
-      const el = _buildTabEl(tab);
-      if (idx < activeIdx) {
-        el.style.zIndex = activeIdx - idx + 1;
-        el.dataset.stackPos = 'above';
-      } else if (idx === activeIdx) {
-        el.style.zIndex = 100;
-        el.dataset.stackPos = 'active';
-      } else {
-        el.style.zIndex = entries.length - idx + 1;
-        el.dataset.stackPos = 'below';
-      }
-      el.addEventListener('click', (e) => {
-        if (e.target.closest('.tab-close')) { _tabs.close(tab.id); return; }
-        _tabs.switch(tab.id);
-      });
-      $tabList.appendChild(el);
-    });
-  }
-
-  function _renderWebviews() {
-    // Remove closed tabs' webviews
-    _wvMap.forEach((wv, id) => {
-      if (!tabs.has(id)) {
-        try { wv.stop(); } catch {}
-        wv.remove();
-        _wvMap.delete(id);
-      }
-    });
-
-    // Create webview for new tabs, show active, hide rest
-    tabs.forEach((tab) => {
-      _ensureWebview(tab.id, tab.url);
-    });
-    _showActiveWebview();
-  }
-
-  function _onTabsUpdated(data) {
-    const arr = Array.isArray(data) ? data : [];
-    activeTabId = arr.find(t => t.active)?.id || null;
-    const ids = new Set(arr.map(t => t.id));
-    for (const id of tabs.keys()) if (!ids.has(id)) tabs.delete(id);
-    for (const t of arr) {
-      if (!tabs.has(t.id)) tabs.set(t.id, { ...t });
-      else Object.assign(tabs.get(t.id), t);
-    }
-    _renderTabs();
-    _renderWebviews();
-    _updateNTP();
-  }
 
   // ── Address Bar ──────────────────────────────────────────
   function _showAddr() { $addrBar.classList.remove('hidden'); $addrInput.focus(); $addrInput.select(); if ($addrInput.value) _buildSuggestions($addrInput.value); }
@@ -536,11 +361,59 @@
   }
 
   // ── Chat ─────────────────────────────────────────────────
-  function _sendChat() {
+  async function _sendChat() {
     const text = $chatInput.value.trim(); if (!text) return;
+    chatHistory.push({ role: 'user', content: text });
     const um = document.createElement('div'); um.className = 'chat-msg user'; um.textContent = text; $chatMessages.appendChild(um);
     $chatInput.value = ''; $chatInput.style.height = 'auto'; $chatMessages.scrollTop = $chatMessages.scrollHeight;
-    const am = document.createElement('div'); am.className = 'chat-msg assistant'; am.textContent = '⚙️ AI not configured. Open Settings → AI Configuration to set up your API key and model.'; $chatMessages.appendChild(am); $chatMessages.scrollTop = $chatMessages.scrollHeight;
+
+    const am = document.createElement('div'); am.className = 'chat-msg assistant'; am.textContent = '…'; $chatMessages.appendChild(am); $chatMessages.scrollTop = $chatMessages.scrollHeight;
+
+    const apiKey = settings.aiApiKey;
+    const baseUrl = (settings.aiBaseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
+    const model = settings.aiModel || 'gpt-4o';
+    const temp = settings.aiTemperature ?? 0.7;
+
+    if (!apiKey) {
+      am.textContent = '⚙️ Set API key in Settings → AI Configuration.';
+      chatHistory.pop();
+      return;
+    }
+
+    try {
+      let reply = '';
+
+      if (settings.aiProvider === 'anthropic') {
+        const body = { model, max_tokens: 4096, messages: chatHistory };
+        if (settings.aiSystemPrompt) body.system = settings.aiSystemPrompt;
+        const res = await fetch(baseUrl.replace('/v1', '') + '/v1/messages', {
+          method: 'POST',
+          headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) { am.textContent = `❌ API error: ${res.status} ${res.statusText}`; chatHistory.pop(); return; }
+        const data = await res.json();
+        reply = data.content?.[0]?.text || JSON.stringify(data);
+      } else {
+        const messages = settings.aiSystemPrompt
+          ? [{ role: 'system', content: settings.aiSystemPrompt }, ...chatHistory]
+          : [...chatHistory];
+        const res = await fetch(baseUrl + '/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, messages, temperature: temp }),
+        });
+        if (!res.ok) { am.textContent = `❌ API error: ${res.status} ${res.statusText}`; chatHistory.pop(); return; }
+        const data = await res.json();
+        reply = data.choices?.[0]?.message?.content || JSON.stringify(data);
+      }
+
+      am.textContent = reply;
+      chatHistory.push({ role: 'assistant', content: reply });
+    } catch (err) {
+      am.textContent = '❌ ' + err.message;
+      chatHistory.pop();
+    }
   }
 
   // ── Shortcut actions ────────────────────────────────────
@@ -572,11 +445,12 @@
       const c = e.ctrlKey || e.metaKey;
       if (c && e.key === 'l') { e.preventDefault(); _showAddr(); }
       else if (c && e.key === 't') { e.preventDefault(); _tabs.create('about:blank'); }
-      else if (c && e.key === 'w') { e.preventDefault(); if (activeTabId) _tabs.close(activeTabId); }
+      else if (c && e.key === 'w') { e.preventDefault(); const id = window.PaperTM?.getActiveTabId(); if (id) _tabs.close(id); }
       else if (c && e.key === 'h') { e.preventDefault(); _toggleHistory(); }
       else if (c && e.key === ',') { e.preventDefault(); _toggleSettings(); }
       else if (c && e.shiftKey && e.key === 'A') { e.preventDefault(); _toggleSidecar('ai'); }
       else if (c && e.key === 'b') { e.preventDefault(); _toggleSidebar(); }
+      else if (c && e.key === 'Tab') { e.preventDefault(); window.PaperTM?.cycleTab(e.shiftKey ? -1 : 1); }
     });
   }
 
@@ -587,7 +461,8 @@
     $winClose.addEventListener('click', () => _win.close?.());
     $sidebarToggle.addEventListener('click', _toggleSidebar);
     $newTabBtn.addEventListener('click', () => _tabs.create('about:blank'));
-    _tabs.onUpdated?.((d) => _onTabsUpdated(d));
+    window.PaperTM?.init({ tabList: $tabList, wvContainer: $wvContainer, addrInput: $addrInput, ntp: $newTabPage, storage: _storage, tabsIPC: _tabs });
+    _tabs.onUpdated?.((d) => window.PaperTM?.onTabsUpdated(d));
     window.electronAPI?.on?.('app:shortcut', (_event, action) => _handleShortcut(action));
     _shell.onOutput?.((payload) => {
       if (!payload) return;
@@ -659,7 +534,7 @@
     try { shellState = await _shell.state?.() || shellState; } catch {}
     _renderShellState();
 
-    try { const l = await _tabs.list?.(); if (l?.length) _onTabsUpdated(l); else _tabs.create('about:blank'); }
+    try { const l = await _tabs.list?.(); if (l?.length) window.PaperTM?.onTabsUpdated(l); else _tabs.create('about:blank'); }
     catch { _tabs.create('about:blank'); }
   }
 

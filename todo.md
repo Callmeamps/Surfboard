@@ -22,11 +22,12 @@
 - [x] Decide extension model — direct session (bead riced-chromium-sfk), see docs/extension-model.md
 - [x] Infra cleanup — renamed to surfboard, CI added, dolt remote configured
 - [x] 66 tests passing across 6 suites
+- [x] Extract PaperTM module (papertm.js) — tab logic consolidated (beads ric-39o + ric-klx)
+- [x] Ctrl+Tab / Ctrl+Shift+Tab cycling (PaperWM-style strip nav)
+- [x] Wire AI backend — sendChat calls configured API (OpenAI/Anthropic/Ollama)
 
 ## Remaining
 
-- [ ] Refactor app.js — 19 complex untested functions, MI: 64.1, CRAP max: 342 (bead riced-chromium-klx)
-- AI backend integration (sendChat is placeholder)
 - Extension loader testing
 - Address bar / omnibox with search suggestions
 - Persistent bookmark/history storage enhancements

@@ -164,15 +164,15 @@ This prevents the janky "all tabs shrink when you open one" behavior of conventi
 - [x] Smooth 300ms transitions on switch
 - [x] 66 tests passing
 
-### Phase 2 (klx + bead riced-chromium-39o) — Rewrite
+### Phase 2 (Done ✅) — Rewrite
 
-- [ ] Extract PaperTM into `src/renderer/js/papertm.js` module
-- [ ] Consolidate `_renderTabs`, `_renderWebviews`, `_onTabsUpdated` into coherent pipeline
-- [ ] Add `Ctrl+Tab` / `Ctrl+Shift+Tab` cycling (PaperWM-style strip navigation)
-- [ ] Ensure "no resize on add" — adding a tab doesn't change existing tab sizes
-- [ ] Formalize PaperTM as exported API (`window.electronAPI.papertm`)
-- [ ] All 66+ existing tests pass
-- [ ] Stress test: 50+ tabs with stable perf
+- [x] Extract PaperTM into `src/renderer/js/papertm.js` module
+- [x] Consolidate `_renderTabs`, `_renderWebviews`, `_onTabsUpdated` into coherent pipeline
+- [x] Add `Ctrl+Tab` / `Ctrl+Shift+Tab` cycling (PaperWM-style strip navigation)
+- [x] Ensure "no resize on add" — adding a tab doesn't change existing tab sizes
+- [x] Formalize PaperTM as exported API (`window.PaperTM`)
+- [x] All 66+ existing tests pass
+- [ ] Manual stress test: 50+ tabs with stable perf
 
 ### Phase 3 (Future) — Enhancements
 
