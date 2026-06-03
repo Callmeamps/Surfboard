@@ -20,6 +20,7 @@
   },
   "devDependencies": {
     "electron-reloader": "^1.2.3",
-    "jest": "^30.4.2"
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1"
   }
 }

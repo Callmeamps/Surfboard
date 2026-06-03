@@ -24,6 +24,12 @@
   const _SAVE_DEBOUNCE_MS = 500;
   let _deps = null;
 
+  // ── Scroll-to-switch state ─────────────────────────────
+  let _scrollAccum = 0;
+  let _scrollThreshold = 100;  // px of scroll before switching
+  let _scrollResetTimer = null;
+  const _SCROLL_RESET_MS = 200; // reset accumulator if no scroll events
+
   // Debounced persist order to storage
   function _persistOrder() {
     if (_saveTimeout) clearTimeout(_saveTimeout);
@@ -34,7 +40,7 @@
 
   function _queueTabs() {
     if (_tabsRaf) return;
-    _tabsRaf = requestAnimationFrame(() => { _tabsRaf = null; _renderTabs(); });
+    _tabsRaf = requestAnimationFrame(() => { _tabsRaf = null; _doRenderTabs(); });
   }
 
   // Returns _tabs entries sorted by _order
@@ -225,7 +231,7 @@
     setTimeout(() => document.addEventListener('click', close), 0);
   }
 
-  function _renderTabs() {
+  function _doRenderTabs() {
     _deps.tabList.innerHTML = '';
     const entries = _orderedEntries();
     let activeIdx = entries.findIndex(([, t]) => t.active);
@@ -340,6 +346,27 @@
     }
   }
 
+  // ── Scroll-to-switch ──────────────────────────────────
+  function _onWheelScroll(e) {
+    // Only trigger when tab list is scrollable
+    const tabList = _deps.tabList;
+    if (tabList.scrollHeight <= tabList.clientHeight) return;
+
+    // Accumulate scroll delta
+    _scrollAccum += e.deltaY;
+
+    // Reset accumulator after pause in scrolling
+    clearTimeout(_scrollResetTimer);
+    _scrollResetTimer = setTimeout(() => { _scrollAccum = 0; }, _SCROLL_RESET_MS);
+
+    // Check threshold
+    if (Math.abs(_scrollAccum) >= _scrollThreshold) {
+      const direction = _scrollAccum > 0 ? 1 : -1;
+      _scrollAccum = 0;
+      PaperTM.switchToDirection(direction);
+    }
+  }
+
   // ── Drag drop zone on tabList ──────────────────────────
   // Attached once per init
   let _dragListenersAttached = false;
@@ -408,6 +435,8 @@
       _deps = deps;
       _minimapContainer = deps.minimapContainer;
       _attachDragListeners();
+      // Scroll-to-switch: wheel on tab list
+      _deps.tabList.addEventListener('wheel', _onWheelScroll, { passive: true });
     },
 
     onTabsUpdated(data) {
@@ -439,7 +468,7 @@
         if (persisted && Array.isArray(persisted) && persisted.every(id => _tabs.has(id))) {
           _order = persisted;
         }
-        _renderTabs();
+        _doRenderTabs();
       });
 
       _renderWebviews();
@@ -452,7 +481,7 @@
       if (Array.isArray(groupsData)) {
         groupsData.forEach(g => _groups.set(g.id, { ...g }));
       }
-      _renderTabs();
+      _doRenderTabs();
     },
 
     getActiveTabId() {
@@ -466,6 +495,15 @@
     // Expose internals for tests only
     _getState() {
       return { tabs: _tabs, activeTabId: _activeTabId, order: _order };
+    },
+
+    _renderTabs() {
+      // Call the internal _renderTabs (renamed to _doRenderTabs)
+      _doRenderTabs();
+    },
+
+    _persistOrder() {
+      _persistOrder();
     },
 
     getWebview(tabId) {
@@ -485,6 +523,11 @@
       const nextIdx = (curIdx + direction + entries.length) % entries.length;
       if (nextIdx === curIdx) return;
       _deps.tabsIPC.switch(entries[nextIdx][0]);
+    },
+
+    switchToDirection(direction) {
+      // Use existing cycleTab which wraps via IPC switch
+      PaperTM.cycleTab(direction);
     },
   };
 
