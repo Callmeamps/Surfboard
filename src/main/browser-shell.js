@@ -37,12 +37,93 @@ const DEFAULT_ALLOWED_COMMANDS = [
   'awk',
 ];
 
+function charIsOperator(ch) {
+  return /[;&|<>`$]/.test(ch);
+}
+
+function pushToken(tokens, current) {
+  tokens.push(current);
+  return '';
+}
+
+function handleEscapeChar(ch, state) {
+  state.current += ch;
+  state.escape = false;
+}
+
+function handleSingleQuotedChar(ch, state) {
+  if (ch === "'") {
+    state.quote = null;
+  } else {
+    state.current += ch;
+  }
+}
+
+function handleDoubleQuotedChar(ch, state) {
+  if (ch === '"') {
+    state.quote = null;
+  } else if (ch === '\\') {
+    state.escape = true;
+  } else {
+    state.current += ch;
+  }
+}
+
+function handleUnquotedChar(ch, state, tokens) {
+  if (/\s/.test(ch)) {
+    if (state.current) {
+      state.current = pushToken(tokens, state.current);
+    }
+    return {};
+  }
+
+  if (ch === "'") {
+    state.quote = 'single';
+    return {};
+  }
+
+  if (ch === '"') {
+    state.quote = 'double';
+    return {};
+  }
+
+  if (ch === '\\') {
+    state.escape = true;
+    return {};
+  }
+
+  if (charIsOperator(ch)) {
+    return { error: `Blocked shell operator: ${ch}` };
+  }
+
+  state.current += ch;
+  return {};
+}
+
+function finalizeTokens(state, tokens) {
+  if (state.escape) {
+    return { ok: false, error: 'Trailing escape', tokens: [] };
+  }
+
+  if (state.quote) {
+    return { ok: false, error: 'Unterminated quote', tokens: [] };
+  }
+
+  if (state.current) {
+    pushToken(tokens, state.current);
+  }
+
+  if (!tokens.length) {
+    return { ok: false, error: 'Empty command', tokens: [] };
+  }
+
+  return { ok: true, tokens };
+}
+
 function tokenizeCommandLine(input) {
   const text = String(input ?? '').trim();
   const tokens = [];
-  let current = '';
-  let quote = null;
-  let escape = false;
+  const state = { current: '', quote: null, escape: false };
 
   if (!text) {
     return { ok: false, error: 'Empty command', tokens: [] };
@@ -51,81 +132,28 @@ function tokenizeCommandLine(input) {
   for (let i = 0; i < text.length; i += 1) {
     const ch = text[i];
 
-    if (escape) {
-      current += ch;
-      escape = false;
+    if (state.escape) {
+      handleEscapeChar(ch, state);
       continue;
     }
 
-    if (quote === 'single') {
-      if (ch === "'") {
-        quote = null;
-      } else {
-        current += ch;
-      }
+    if (state.quote === 'single') {
+      handleSingleQuotedChar(ch, state);
       continue;
     }
 
-    if (quote === 'double') {
-      if (ch === '"') {
-        quote = null;
-        continue;
-      }
-      if (ch === '\\') {
-        escape = true;
-        continue;
-      }
-      current += ch;
+    if (state.quote === 'double') {
+      handleDoubleQuotedChar(ch, state);
       continue;
     }
 
-    if (/\s/.test(ch)) {
-      if (current) {
-        tokens.push(current);
-        current = '';
-      }
-      continue;
+    const { error } = handleUnquotedChar(ch, state, tokens);
+    if (error) {
+      return { ok: false, error, tokens: [] };
     }
-
-    if (ch === "'") {
-      quote = 'single';
-      continue;
-    }
-
-    if (ch === '"') {
-      quote = 'double';
-      continue;
-    }
-
-    if (ch === '\\') {
-      escape = true;
-      continue;
-    }
-
-    if (/[;&|<>`$]/.test(ch)) {
-      return { ok: false, error: `Blocked shell operator: ${ch}`, tokens: [] };
-    }
-
-    current += ch;
   }
 
-  if (escape) {
-    return { ok: false, error: 'Trailing escape', tokens: [] };
-  }
-
-  if (quote) {
-    return { ok: false, error: 'Unterminated quote', tokens: [] };
-  }
-
-  if (current) {
-    tokens.push(current);
-  }
-
-  if (!tokens.length) {
-    return { ok: false, error: 'Empty command', tokens: [] };
-  }
-
-  return { ok: true, tokens };
+  return finalizeTokens(state, tokens);
 }
 
 function normalizeCommandName(command) {
