@@ -164,6 +164,18 @@ html, body {
 .tab.active .tab-loader { width: 8px; height: 8px; }
 .tab.loading .tab-loader { opacity: 1; animation: tabPulse 1s ease-in-out infinite; }
 
+/* ── Drag-to-reorder ─────────────────────────────────── */
+/* GPU-composited: opacity and transform only — no layout thrash */
+.tab.dragging {
+  opacity: 0.35;
+  transform: scale(1.06) !important;
+  cursor: grabbing;
+  pointer-events: none;
+  z-index: 9999 !important;
+}
+
+@keyframes tabPulse {
+
 @keyframes tabPulse {
   0%, 100% { opacity: 0.25; transform: scale(0.8); }
   50% { opacity: 1; transform: scale(1); }

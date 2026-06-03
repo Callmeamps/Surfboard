@@ -193,6 +193,25 @@ function updateSettings(patch) {
   return { ...data.settings };
 }
 
+// ── Tab Order ─────────────────────────────────────────────
+
+function loadTabOrder() {
+  const data = _read();
+  return Promise.resolve(data.tabOrder ? [...data.tabOrder] : null);
+}
+
+function saveTabOrder(order) {
+  const data = _read();
+  data.tabOrder = [...order];
+  _write(data);
+}
+
+function clearTabOrder() {
+  const data = _read();
+  delete data.tabOrder;
+  _write(data);
+}
+
 // ── Module exports ──────────────────────────────────────────
 
 module.exports = {
@@ -208,4 +227,8 @@ module.exports = {
   // Settings
   getSettings,
   updateSettings,
+  // Tab Order
+  loadTabOrder,
+  saveTabOrder,
+  clearTabOrder,
 };
