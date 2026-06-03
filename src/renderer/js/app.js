@@ -99,23 +99,92 @@
   }
   async function _toggleSidebar() { await _setSidebar(!sidebarCollapsed); }
 
-  // ── Address Bar ──────────────────────────────────────────
+// ── Address Bar ──────────────────────────────────────────
+  let suggestionDebounceTimer = null;
+  let lastSuggestionQuery = '';
+
   function _showAddr() { $addrBar.classList.remove('hidden'); $addrInput.focus(); $addrInput.select(); if ($addrInput.value) _buildSuggestions($addrInput.value); }
   function _hideAddr() { $addrBar.classList.add('hidden'); $addrInput.blur(); _hideSuggestions(); }
   function _hideSuggestions() { $addrDD.classList.add('hidden'); suggestions = []; addrActiveIdx = -1; }
 
-  function _buildSuggestions(q) {
+  // Fuzzy score: consecutive char matches score higher
+  function _fuzzyScore(text, query) {
+    if (!text || !query) return 0;
+    text = text.toLowerCase();
+    query = query.toLowerCase();
+    let score = 0;
+    let lastMatchIdx = -1;
+    for (let i = 0; i < query.length; i++) {
+      const idx = text.indexOf(query[i], lastMatchIdx + 1);
+      if (idx === -1) return 0;
+      // Consecutive matches get bonus
+      if (lastMatchIdx === -1 || idx === lastMatchIdx + 1) score += 2;
+      else score += 1;
+      lastMatchIdx = idx;
+    }
+    return score;
+  }
+
+  async function _fetchApiSuggestions(q) {
+    // Only fetch for DDG or Brave search engines
+    const engine = settings.searchEngine;
+    if (engine !== 'ddg' && engine !== 'brave') return [];
+    try {
+      const res = await fetch('https://duckduckgo.com/ac/?q=' + encodeURIComponent(q));
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data || []).map(s => ({ icon: '🌐', text: s.Text || s, url: s.Url || `https://duckduckgo.com/?q=${encodeURIComponent(s)}` })).slice(0, 8);
+    } catch { return []; }
+  }
+
+  async function _buildSuggestions(q) {
     if (!q) { _hideSuggestions(); return; }
+    lastSuggestionQuery = q;
+
+    // Cancel any pending API fetch
+    if (suggestionDebounceTimer) clearTimeout(suggestionDebounceTimer);
+
     q = q.toLowerCase();
-    const items = [];
-    historyEntries.forEach(h => { if (h.title?.toLowerCase().includes(q) || h.url?.toLowerCase().includes(q)) items.push({ icon: '🕐', text: h.title || h.url, url: h.url }); });
+    const localItems = [];
+
+    // Local fuzzy search
+    historyEntries.forEach(h => {
+      const title = h.title || h.url || '';
+      const url = h.url || '';
+      const score = _fuzzyScore(title, q) || _fuzzyScore(url, q);
+      if (score) localItems.push({ icon: '🕐', text: title, url, score });
+    });
     document.querySelectorAll('.bookmark-item').forEach(el => {
       const lbl = el.querySelector('.label');
-      if (lbl && lbl.textContent.toLowerCase().includes(q)) { const u = el.dataset.url; if (u) items.push({ icon: '🔖', text: lbl.textContent, url: u }); }
+      const u = el.dataset.url;
+      if (lbl && u) {
+        const score = _fuzzyScore(lbl.textContent, q) || _fuzzyScore(u, q);
+        if (score) localItems.push({ icon: '🔖', text: lbl.textContent, url: u, score });
+      }
     });
-    items.push({ icon: '🔍', text: `Search "${q}"`, url: 'https://www.google.com/search?q=' + encodeURIComponent(q) });
-    suggestions = items.slice(0, 8);
+
+    // Add search suggestion
+    const searchItem = { icon: '🔍', text: `Search "${q}"`, url: 'https://www.google.com/search?q=' + encodeURIComponent(q), score: 0 };
+
+    // Render initial suggestions immediately
+    suggestions = [...localItems, searchItem].slice(0, 8);
     _renderSuggestions();
+
+    // Debounce API fetch and update suggestions
+    suggestionDebounceTimer = setTimeout(async () => {
+      if (lastSuggestionQuery !== q) return;
+      const apiItems = await _fetchApiSuggestions(q);
+      // Combine local items with API items, keeping search item at end
+      const combined = [...localItems, ...apiItems, searchItem];
+      combined.sort((a, b) => {
+        // Search item always at end
+        if (a.icon === '🔍') return 1;
+        if (b.icon === '🔍') return -1;
+        return b.score - a.score;
+      });
+      suggestions = combined.slice(0, 8);
+      _renderSuggestions();
+    }, 300);
   }
 
   function _renderSuggestions() {
@@ -280,6 +349,8 @@
 
   async function _toggleHistory() {
     try { const e = await (_storage.getHistory?.(30) || Promise.resolve([])).catch(() => []); if (e.length) historyEntries = e; } catch {}
+    // Sync history with settings module
+    window.SettingsModule?.setHistory?.(historyEntries);
     if ($bookmarks.dataset.mode === 'history') { delete $bookmarks.dataset.mode; _loadBookmarks(); return; }
     $bookmarks.dataset.mode = 'history';
     $bookmarks.innerHTML = '';
@@ -293,72 +364,10 @@
     });
   }
 
-  // ── Settings ─────────────────────────────────────────────
-  let $settingsOv = null;
-  const THEMES = [
-    { id: 'dark', bg: '#141416', surface: '#1a1a1e', accent: '#60a5fa' },
-    { id: 'nord', bg: '#2e3440', surface: '#3b4252', accent: '#88c0d0' },
-    { id: 'drac', bg: '#282a36', surface: '#44475a', accent: '#bd93f9' },
-    { id: 'gruv', bg: '#282828', surface: '#3c3836', accent: '#fabd2f' },
-    { id: 'pard', bg: '#1e1e2e', surface: '#313244', accent: '#cba6f7' },
-  ];
-  const THEME_BY_ID = Object.fromEntries(THEMES.map(t => [t.id, t]));
-
-  function _applyTheme(id) {
-    const t = THEME_BY_ID[id] || THEME_BY_ID.dark;
-    const r = document.documentElement.style;
-    r.setProperty('--bg', t.bg); r.setProperty('--surface', t.surface); r.setProperty('--accent', t.accent);
-    settings.theme = id; _storage.updateSettings?.({ theme: id });
-  }
-
-  function _buildSettings() {
-    $settingsOv = document.createElement('div');
-    $settingsOv.className = 'settings-overlay';
-    $settingsOv.innerHTML = `<div class="settings-panel"><div class="settings-header"><h2>⚙️ Settings</h2><button class="settings-close no-drag">✕</button></div><div class="settings-body"><div class="settings-section"><div class="settings-section-title">Search</div><div class="settings-row"><div class="settings-label">Default Engine</div><select id="set-se" class="settings-select no-drag"><option value="google">Google</option><option value="ddg">DuckDuckGo</option><option value="brave">Brave</option></select></div></div><div class="settings-section"><div class="settings-section-title">Appearance</div><div class="settings-row"><div class="settings-label">Theme</div></div><div id="set-themes" class="theme-swatches"></div></div><div class="settings-section"><div class="settings-section-title" style="color:var(--accent)">AI Configuration</div><div class="ai-config-row"><label>Provider</label><select id="set-ai-provider" class="settings-select no-drag"><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="ollama">Ollama</option><option value="custom">Custom / Other</option></select></div><div class="ai-config-row"><label>API Key</label><input id="set-ai-key" type="password" class="settings-input no-drag" placeholder="sk-..."><div class="ai-config-hint">Stored locally, never sent anywhere except your chosen API endpoint.</div></div><div class="ai-config-row"><label>Base URL <small>(leave blank for default)</small></label><input id="set-ai-baseurl" type="text" class="settings-input no-drag" placeholder="https://api.openai.com/v1"><div class="ai-config-hint">Override for Ollama, proxies, or compatible APIs.</div></div><div class="ai-config-row"><label>Model</label><input id="set-ai-model" type="text" class="settings-input no-drag" placeholder="gpt-4o"></div><div class="ai-config-row"><label>System Prompt</label><textarea id="set-ai-sysprompt" class="settings-textarea no-drag" placeholder="You are a helpful assistant..."></textarea></div><div class="ai-config-row"><div class="settings-label">Temperature <span id="set-ai-temp-val" style="color:var(--text-dim);font-size:11px;margin-left:4px">0.7</span></div><input id="set-ai-temp" type="range" min="0" max="2" step="0.1" value="0.7" style="min-width:200px"></div></div><div class="settings-section"><div class="settings-section-title" style="color:var(--danger)">Danger Zone</div><div class="settings-danger"><div class="settings-row"><div class="settings-label">Clear history</div><button id="set-clear-hist" class="btn-danger no-drag">Clear</button></div><div class="settings-row"><div class="settings-label">Reset all data</div><button id="set-clear-all" class="btn-danger no-drag">Reset</button></div></div></div></div></div>`;
-    $app.appendChild($settingsOv);
-    $settingsOv.querySelector('.settings-close').addEventListener('click', () => $settingsOv.classList.add('hidden'));
-    $settingsOv.addEventListener('click', (e) => { if (e.target === $settingsOv) $settingsOv.classList.add('hidden'); });
-    $settingsOv.querySelector('#set-se').addEventListener('change', (e) => _storage.updateSettings?.({ searchEngine: e.target.value }));
-    const aiIds = { aiProvider: 'set-ai-provider', aiApiKey: 'set-ai-key', aiBaseUrl: 'set-ai-baseurl', aiModel: 'set-ai-model', aiSystemPrompt: 'set-ai-sysprompt' };
-    Object.entries(aiIds).forEach(([f, id]) => { const el = $settingsOv.querySelector('#' + id); if (el) el.addEventListener('change', () => _storage.updateSettings?.({ [f]: el.type === 'checkbox' ? el.checked : el.value })); });
-    const $tmp = $settingsOv.querySelector('#set-ai-temp'), $tmpV = $settingsOv.querySelector('#set-ai-temp-val');
-    if ($tmp) { $tmp.addEventListener('input', () => { $tmpV.textContent = $tmp.value; }); $tmp.addEventListener('change', () => { _storage.updateSettings?.({ aiTemperature: parseFloat($tmp.value) }); }); }
-    $settingsOv.querySelector('#set-clear-hist').addEventListener('click', async () => { if (!confirm('Clear all history?')) return; await _storage.clearHistory?.(); historyEntries = []; });
-    $settingsOv.querySelector('#set-clear-all').addEventListener('click', async () => { if (!confirm('Reset all data?')) return; await _storage.clearHistory?.(); await _storage.updateSettings?.({ searchEngine: 'google', theme: 'dark' }); historyEntries = []; _applyTheme('dark'); $settingsOv.classList.add('hidden'); });
-    const $sw = $settingsOv.querySelector('#set-themes');
-    THEMES.forEach(t => {
-      const el = document.createElement('div');
-      el.className = 'theme-swatch' + (t.id === (settings.theme || 'dark') ? ' active' : '');
-      el.style.background = `linear-gradient(135deg,${t.bg},${t.surface})`; el.style.color = t.accent; el.title = t.id;
-      el.innerHTML = '<span class="check">✓</span>';
-      el.addEventListener('click', () => { _applyTheme(t.id); $sw.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active')); el.classList.add('active'); });
-      $sw.appendChild(el);
-    });
-  }
-
-  function _populateAi() {
-    if (!$settingsOv) return;
-    const s = (id, v) => { const e = document.getElementById(id); if (e) e.value = v || ''; };
-    s('set-ai-provider', settings.aiProvider); s('set-ai-key', settings.aiApiKey); s('set-ai-baseurl', settings.aiBaseUrl);
-    s('set-ai-model', settings.aiModel); s('set-ai-sysprompt', settings.aiSystemPrompt);
-    const $t = document.getElementById('set-ai-temp'), $tV = document.getElementById('set-ai-temp-val');
-    if ($t) { $t.value = settings.aiTemperature ?? 0.7; if ($tV) $tV.textContent = $t.value; }
-  }
-
-  function _toggleSettings() {
-    if (!$settingsOv) _buildSettings();
-    if ($settingsOv.classList.contains('hidden')) { $settingsOv.classList.remove('hidden'); $settingsOv.querySelector('#set-se').value = settings.searchEngine || 'google'; _populateAi(); }
-    else $settingsOv.classList.add('hidden');
-  }
-
-  function _openAiConfig() {
-    if (!$settingsOv) _buildSettings();
-    _setShellMode('ai');
-    $settingsOv.classList.remove('hidden');
-    $settingsOv.querySelector('#set-se').value = settings.searchEngine || 'google';
-    _populateAi();
-    $settingsOv.querySelector('.settings-section:nth-child(3)')?.scrollIntoView({ behavior: 'smooth' });
-  }
+// ── Settings ─────────────────────────────────────────────
+  // Delegated to settings.js module
+  function _toggleSettings() { window.SettingsModule.toggle(); }
+  function _openAiConfig() { window.SettingsModule.openAiConfig(); }
 
   // ── Chat ─────────────────────────────────────────────────
   async function _sendChat() {
@@ -529,7 +538,8 @@
 
     _loadBookmarks(); _loadExts();
     try { settings = await _storage.getSettings?.() || {}; } catch {}
-    if (settings.theme) _applyTheme(settings.theme);
+    // Initialize settings module
+    window.SettingsModule?.init?.({ storage: _storage, settings, history: historyEntries, onOpenAiConfig: () => _setShellMode('ai') });
     if (settings.sidebarCollapsed) _setSidebar(true);
     try { shellState = await _shell.state?.() || shellState; } catch {}
     _renderShellState();
