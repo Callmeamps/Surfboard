@@ -103,7 +103,6 @@
   function _nav(text) {
     text = text.trim(); if (!text) return;
     text = _isUrl(text) ? _normUrl(text) : 'https://www.google.com/search?q=' + encodeURIComponent(text);
-    console.log('[nav] text:', text, 'PaperTM:', !!window.PaperTM, 'activeTab:', window.PaperTM?.getActiveTabId());
     const navigated = window.PaperTM?.navigate(text);
     console.log('[nav] navigated:', navigated);
     if (navigated) { _hideAddr(); return; }
