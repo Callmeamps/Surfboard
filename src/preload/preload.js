@@ -72,6 +72,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearHistory: () => ipcRenderer.invoke('storage:history:clear'),
     getSettings: () => ipcRenderer.invoke('storage:settings:get'),
     updateSettings: (patch) => ipcRenderer.invoke('storage:settings:update', patch),
+    loadTabOrder: () => ipcRenderer.invoke('storage:tab-order:get'),
+    saveTabOrder: (order) => ipcRenderer.invoke('storage:tab-order:save', order),
+    clearTabOrder: () => ipcRenderer.invoke('storage:tab-order:clear'),
   },
 
   // ── Extensions ────────────────────────────────────────

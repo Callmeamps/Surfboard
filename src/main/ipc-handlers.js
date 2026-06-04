@@ -264,6 +264,20 @@ function register() {
     return storage.updateSettings(patch);
   });
 
+  ipcMain.handle('storage:tab-order:get', () => {
+    return storage.loadTabOrder();
+  });
+
+  ipcMain.handle('storage:tab-order:save', (_event, order) => {
+    storage.saveTabOrder(order);
+    return true;
+  });
+
+  ipcMain.handle('storage:tab-order:clear', () => {
+    storage.clearTabOrder();
+    return true;
+  });
+
   // ── Window controls ───────────────────────────────────
   ipcMain.on('window:minimize', () => {
     windowManager.minimize();

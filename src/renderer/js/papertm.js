@@ -467,12 +467,14 @@
       }
 
       // Restore persisted order if available and valid
-      _deps.storage.loadTabOrder().then(persisted => {
-        if (persisted && Array.isArray(persisted) && persisted.every(id => _tabs.has(id))) {
-          _order = persisted;
-        }
-        _doRenderTabs();
-      });
+      Promise.resolve(_deps.storage.loadTabOrder?.())
+        .then(persisted => {
+          if (persisted && Array.isArray(persisted) && persisted.every(id => _tabs.has(id))) {
+            _order = persisted;
+          }
+          _doRenderTabs();
+        })
+        .catch(() => _doRenderTabs());
 
       _renderWebviews();
       _updateNTP();
