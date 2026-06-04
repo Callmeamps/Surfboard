@@ -57,9 +57,8 @@
     wv.dataset.tabId = tabId;
     wv.setAttribute('partition', 'persist:riced');
     wv.setAttribute('allowpopups', '');
-    wv.src = url || 'about:blank';
+    wv.setAttribute('httpreferrer', 'https://www.google.com/');
     wv.style.display = 'none';
-
     const _t = () => _tabs.get(tabId);
     const _syncTab = (patch) => {
       const t = _t();
@@ -70,7 +69,10 @@
     };
     wv.addEventListener('did-start-loading',   () => { _syncTab({ loading: true }); });
     wv.addEventListener('did-stop-loading',    () => { _syncTab({ loading: false }); });
-    wv.addEventListener('did-fail-load',        () => { _syncTab({ loading: false }); });
+    wv.addEventListener('did-fail-load', (e) => {
+      console.log('[webview] did-fail-load:', e.errorCode, e.errorDescription, 'tabId:', tabId);
+      _syncTab({ loading: false });
+    });
     wv.addEventListener('dom-ready', () => {
       if (!wv.dataset.registered) {
         const wcId = wv.getWebContentsId?.();
@@ -90,6 +92,7 @@
       if (e.favicons?.[0]) _syncTab({ favicon: e.favicons[0] });
     });
     wv.addEventListener('did-navigate', (e) => {
+      console.log('[webview] did-navigate:', e.url, 'tabId:', tabId);
       const t = _t(); if (!t) return;
       const url = e.url;
       if (tabId === _activeTabId) _deps.addrInput.value = url;
@@ -108,12 +111,15 @@
 
     _deps.wvContainer.appendChild(wv);
     _wvMap.set(tabId, wv);
+    // Set src AFTER appending to DOM — required for navigation to trigger
+    console.log('[webview] creating, setting src:', url, 'tabId:', tabId);
+    wv.src = url || 'about:blank';
     return wv;
   }
 
   function _showActiveWebview() {
     _wvMap.forEach((wv, id) => {
-      wv.style.display = (id === _activeTabId) ? 'flex' : 'none';
+      wv.style.display = (id === _activeTabId) ? '' : 'none';
     });
   }
 
@@ -511,6 +517,7 @@
     },
 
     navigate(text) {
+      console.log('[PaperTM] navigate:', text, 'activeTab:', _activeTabId, 'wv:', !!_wvMap.get(_activeTabId));
       const wv = _wvMap.get(_activeTabId);
       if (wv) { wv.src = text; return true; }
       return false;
