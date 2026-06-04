@@ -1,4 +1,4 @@
-# Handoff 20260603 Oz v0.2
+# Handoff 2026-06-03T2334 Oz
 
 - Duration: ~4 hours (across 2 sessions)
 - Message Count: ~25

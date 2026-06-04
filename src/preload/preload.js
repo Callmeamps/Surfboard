@@ -89,6 +89,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   },
 
+  // ── Changelog ──────────────────────────────────────────
+  changelog: {
+    get: () => ipcRenderer.invoke('changelog:get'),
+    shouldShow: () => ipcRenderer.invoke('changelog:shouldShow'),
+    dismiss: () => ipcRenderer.invoke('changelog:dismiss'),
+  },
+
   // ── Generic helpers (used by sidebar.js) ─────────────
   on: (channel, callback) => {
     ipcRenderer.on(channel, callback);

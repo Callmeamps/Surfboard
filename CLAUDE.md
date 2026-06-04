@@ -67,6 +67,7 @@ Surfboard is an Electron-based browser with:
 - **Renderer** (`src/renderer/`) — vertical tab bar, sidebar, AI sidecar, app logic in `js/app.js`
 - **Preload** (`src/preload/`) — IPC bridge exposing `electronAPI` to renderer
 - **Tests** (`test/`) — Jest-based unit tests for main process modules
+- **Changelog** — auto-shows on version change via overlay dialog, data in `src/main/storage.js`, UI in `index.html` + `main.css`
 
 ## Conventions & Patterns
 

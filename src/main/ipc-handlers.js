@@ -280,6 +280,19 @@ function register() {
   ipcMain.handle('window:isMaximized', () => {
     return windowManager.isMaximized();
   });
+
+  // ── Changelog ──────────────────────────────────────────
+  ipcMain.handle('changelog:get', () => {
+    return storage.getChangelogData();
+  });
+
+  ipcMain.handle('changelog:shouldShow', () => {
+    return { show: storage.shouldShowChangelog() };
+  });
+
+  ipcMain.handle('changelog:dismiss', () => {
+    return storage.dismissChangelog();
+  });
 }
 
 module.exports = { register };

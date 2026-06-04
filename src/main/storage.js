@@ -14,8 +14,86 @@ function _dataPath() {
   return path.join(app.getPath('userData'), 'storage.json');
 }
 
+// ── Changelog ──────────────────────────────────────────────
+
+const CHANGELOG = [
+  {
+    version: '0.2.0',
+    date: '2026-06-03',
+    features: [
+      'PaperTM Phase 3: drag-to-reorder tabs, scroll-to-switch, minimap overview',
+      'Tab groups support for organizing related tabs',
+      'Bookmark/history UI: dialog, search, import/export, date grouping',
+      'Settings module extraction',
+      'Address bar omnibox with fuzzy match + DDG/Brave API suggestions',
+      'Extension loader IPC tests (21 new tests)',
+      '87 tests → 124 tests across 10 suites',
+    ],
+    fixes: [
+      'Extension-loader broadcast fix',
+      'Tab-lifecycle ID mismatch fix',
+      'Preload/IPC handler mismatch fix',
+    ],
+  },
+  {
+    version: '0.1.0',
+    date: '2026-05-30',
+    features: [
+      'Frameless window with Linux Wayland support',
+      'Vertical tab bar (PaperTM scrollable strip)',
+      'Collapsible sidebar',
+      'AI sidecar (OpenAI/Anthropic/Ollama)',
+      'Browser shell with allowlisted commands',
+      'Chrome extension support (Manifest V3)',
+      'Ad/tracker blocking',
+    ],
+    fixes: [],
+  },
+];
+
+function getAppVersion() {
+  // Read from package.json at runtime
+  try {
+    const pkgPath = path.join(__dirname, '..', '..', 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    return pkg.version || '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
+
+function getChangelogData() {
+  return {
+    entries: CHANGELOG,
+    currentVersion: getAppVersion(),
+  };
+}
+
+function getStoredVersion() {
+  const data = _read();
+  return data.version || null;
+}
+
+function updateStoredVersion(version) {
+  const data = _read();
+  data.version = version;
+  _write(data);
+}
+
+function shouldShowChangelog() {
+  const stored = getStoredVersion();
+  const current = getAppVersion();
+  return stored !== current;
+}
+
+function dismissChangelog() {
+  updateStoredVersion(getAppVersion());
+  return { dismissed: true };
+}
+
 function _defaultData() {
   return {
+    version: null,
     bookmarks: [
       {
         id: 'bm-1',
@@ -231,4 +309,8 @@ module.exports = {
   loadTabOrder,
   saveTabOrder,
   clearTabOrder,
+  // Changelog
+  getChangelogData,
+  shouldShowChangelog,
+  dismissChangelog,
 };

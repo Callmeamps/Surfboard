@@ -66,6 +66,11 @@
   const $bmDialogCancel     = document.getElementById('bm-dialog-cancel');
   const $bmDialogClose      = document.getElementById('bm-dialog-close');
   const $toastContainer     = document.getElementById('toast-container');
+  const $changelogOverlay   = document.getElementById('changelog-overlay');
+  const $changelogBody      = document.getElementById('changelog-body');
+  const $changelogVersion   = document.getElementById('changelog-version');
+  const $changelogClose     = document.getElementById('changelog-close');
+  const $changelogDismiss   = document.getElementById('changelog-dismiss');
 
   // ── State ────────────────────────────────────────────────
   let suggestions = [];
@@ -497,7 +502,7 @@
         $bookmarks.appendChild(el);
       });
     });
-});
+  }
 
   // ── Settings ─────────────────────────────────────────────
   // Delegated to settings.js module
@@ -558,6 +563,73 @@
       am.textContent = '❌ ' + err.message;
       chatHistory.pop();
     }
+  }
+
+  // ── Changelog ──────────────────────────────────────────
+  async function _showChangelog() {
+    try {
+      const data = await window.electronAPI?.changelog?.get?.();
+      if (!data?.entries?.length) return;
+
+      $changelogVersion.textContent = data.currentVersion;
+      $changelogBody.innerHTML = '';
+
+      data.entries.forEach(entry => {
+        const $entry = document.createElement('div');
+        $entry.className = 'changelog-entry';
+
+        const $header = document.createElement('div');
+        $header.className = 'changelog-entry-header';
+        $header.innerHTML = `<span class="changelog-entry-version">v${entry.version}</span><span class="changelog-entry-date">${entry.date}</span>`;
+        $entry.appendChild($header);
+
+        if (entry.features?.length) {
+          const $featTitle = document.createElement('div');
+          $featTitle.className = 'changelog-section-title';
+          $featTitle.textContent = '✨ Features';
+          $entry.appendChild($featTitle);
+
+          const $featList = document.createElement('ul');
+          $featList.className = 'changelog-list';
+          entry.features.forEach(f => {
+            const $li = document.createElement('li');
+            $li.textContent = f;
+            $featList.appendChild($li);
+          });
+          $entry.appendChild($featList);
+        }
+
+        if (entry.fixes?.length) {
+          const $fixTitle = document.createElement('div');
+          $fixTitle.className = 'changelog-section-title';
+          $fixTitle.textContent = '🔧 Fixes';
+          $entry.appendChild($fixTitle);
+
+          const $fixList = document.createElement('ul');
+          $fixList.className = 'changelog-list';
+          entry.fixes.forEach(f => {
+            const $li = document.createElement('li');
+            $li.className = 'fix';
+            $li.textContent = f;
+            $fixList.appendChild($li);
+          });
+          $entry.appendChild($fixList);
+        }
+
+        $changelogBody.appendChild($entry);
+      });
+
+      $changelogOverlay.classList.remove('hidden');
+    } catch (err) {
+      console.warn('[changelog] failed to load:', err.message);
+    }
+  }
+
+  async function _dismissChangelog() {
+    $changelogOverlay.classList.add('hidden');
+    try {
+      await window.electronAPI?.changelog?.dismiss?.();
+    } catch {}
   }
 
   // ── Shortcut actions ────────────────────────────────────
@@ -695,6 +767,12 @@
     $bmDialogOverlay?.addEventListener('click', (e) => { if (e.target === $bmDialogOverlay) $bmDialogOverlay.classList.add('hidden'); });
     $bmDialogLabel?.addEventListener('keydown', (e) => { if (e.key === 'Enter') $bmDialogUrl.focus(); });
     $bmDialogUrl?.addEventListener('keydown', (e) => { if (e.key === 'Enter') _saveBmDialog(); });
+
+    // Changelog wiring
+    $changelogClose?.addEventListener('click', _dismissChangelog);
+    $changelogDismiss?.addEventListener('click', _dismissChangelog);
+    $changelogOverlay?.addEventListener('click', (e) => { if (e.target === $changelogOverlay) _dismissChangelog(); });
+
     _setupKeys();
 
     _loadBookmarks(); _loadExts();
@@ -704,6 +782,12 @@
     if (settings.sidebarCollapsed) _setSidebar(true);
     try { shellState = await _shell.state?.() || shellState; } catch {}
     _renderShellState();
+
+    // Show changelog if version changed
+    try {
+      const cl = await window.electronAPI?.changelog?.shouldShow?.();
+      if (cl?.show) _showChangelog();
+    } catch {}
 
     try { const l = await _tabs.list?.(); if (l?.length) window.PaperTM?.onTabsUpdated(l); else _tabs.create('about:blank'); }
     catch { _tabs.create('about:blank'); }
