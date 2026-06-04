@@ -82,3 +82,39 @@ bd close <id>         # Complete work
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
+
+## Build & Test
+
+```bash
+npm install
+npm test
+```
+
+## Architecture Overview
+
+Surfboard is an Electron-based browser with:
+- **Main process** (`src/main/`) — window management, tab lifecycle, IPC handlers, browser shell, extension loader, storage
+- **Renderer** (`src/renderer/`) — vertical tab bar, sidebar, AI sidecar, app logic in `js/app.js`
+- **Preload** (`src/preload/`) — IPC bridge exposing `electronAPI` to renderer
+- **Tests** (`test/`) — Jest-based unit tests for main process modules
+- **Changelog** — auto-shows on version change via overlay dialog, data in `src/main/storage.js`, UI in `index.html` + `main.css`
+
+## Conventions & Patterns
+
+- Use `bd` (beads) for all issue tracking
+- Non-interactive shell flags required (`cp -f`, `mv -f`, `rm -f`)
+- Co-author commits: `Co-Authored-By: Oz <oz-agent@warp.dev>`
+
+## Agent Skills
+
+### Issue tracker
+
+GitHub Issues. See [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at repo root. See [`docs/agents/domain.md`](docs/agents/domain.md).
