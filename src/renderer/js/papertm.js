@@ -113,7 +113,7 @@
     _wvMap.set(tabId, wv);
     // Set src AFTER appending to DOM — required for navigation to trigger
     console.log('[webview] creating, setting src:', url, 'tabId:', tabId);
-    wv.src = url || 'about:blank';
+    try { wv.loadURL(url || 'about:blank'); } catch { wv.src = url || 'about:blank'; }
     return wv;
   }
 
@@ -519,7 +519,13 @@
     navigate(text) {
       console.log('[PaperTM] navigate:', text, 'activeTab:', _activeTabId, 'wv:', !!_wvMap.get(_activeTabId));
       const wv = _wvMap.get(_activeTabId);
-      if (wv) { wv.src = text; return true; }
+      if (wv) {
+        // loadURL returns a Promise in Electron 33
+        try {
+          wv.loadURL(text).catch(() => { wv.src = text; });
+        } catch { wv.src = text; }
+        return true;
+      }
       return false;
     },
 

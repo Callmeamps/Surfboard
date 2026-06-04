@@ -19,8 +19,10 @@
     "electron": "^33.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "electron-reloader": "^1.2.3",
     "jest": "^30.4.2",
-    "jest-environment-jsdom": "^30.4.1"
+    "jest-environment-jsdom": "^30.4.1",
+    "playwright": "^1.60.0"
   }
 }
