@@ -312,15 +312,22 @@
     _hideSidecar();
   }
 
-  async function _sendShellCommand() {
+  function _sendShellCommand() {
     const text = $shellInput.value.trim();
     if (!text) return;
+
+    try {
+      window.TrustManager?.require('shell', 'execute');
+    } catch (err) {
+      _appendShellLine('stderr', '[trust] ' + (err.message || 'Permission denied for shell::execute'));
+      return;
+    }
 
     $shellInput.value = '';
     _appendShellLine('command', `› ${text}`);
 
     try {
-      const res = await _shell.command?.(text);
+      const res = _shell.command?.(text);
       if (!res?.ok) {
         _appendShellLine('stderr', res?.error || 'Command blocked');
       }
@@ -668,6 +675,16 @@
       else if (c && e.shiftKey && e.key === 'A') { e.preventDefault(); _toggleSidecar('ai'); }
       else if (c && e.key === 'b') { e.preventDefault(); _toggleSidebar(); }
       else if (c && e.key === 'Tab') { e.preventDefault(); window.PaperTM?.cycleTab(e.shiftKey ? -1 : 1); }
+      // Ctrl+Shift+M — cycle feature-platform modes
+      else if (c && e.shiftKey && e.key === 'M') {
+        e.preventDefault();
+        const modes = window.ModeManager?.MODES;
+        if (!modes) return;
+        const all = Object.values(modes);
+        const cur = window.ModeManager?.get();
+        const idx = all.indexOf(cur);
+        window.ModeManager?.set(all[(idx + 1) % all.length]);
+      }
     });
   }
 
@@ -775,6 +792,19 @@
     $changelogOverlay?.addEventListener('click', (e) => { if (e.target === $changelogOverlay) _dismissChangelog(); });
 
     _setupKeys();
+
+    // Feature platform: modes + trust bootstrap
+    window.ModeManager?.init?.();
+    window.TrustManager?.registerDefaults?.([{ module: 'shell', action: 'execute' }]);
+    window.ModeManager?.onChange?.((detail) => {
+      $shellHint.textContent = 'Mode: ' + detail.to;
+    });
+    window.TrustManager?.onRequest?.((type, detail) => {
+      if (type === 'request') {
+        // Default deny: auto-reject, caller must grant via UI
+        detail.reject(new Error('not granted'));
+      }
+    });
 
     _loadBookmarks(); _loadExts();
 

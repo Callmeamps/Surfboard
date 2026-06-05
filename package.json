@@ -8,6 +8,10 @@
     "dev": "electron . --no-sandbox --dev",
     "test": "jest --verbose"
   },
+  "jest": {
+    "setupFilesAfterEnv": ["./test/setup-feature-platform.js"],
+    "testEnvironment": "jest-environment-jsdom"
+  },
   "keywords": [
     "electron",
     "browser",
