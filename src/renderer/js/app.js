@@ -777,6 +777,9 @@
     _setupKeys();
 
     _loadBookmarks(); _loadExts();
+
+ // Refresh extension list when main process broadcasts updates (e.g. after autoLoadExtensions)
+ window.electronAPI?.on?.('extensions:updated', () => _loadExts());
     try { settings = await _storage.getSettings?.() || {}; } catch {}
     // Initialize settings module
     window.SettingsModule?.init?.({ storage: _storage, settings, history: historyEntries, onOpenAiConfig: () => _setShellMode('ai') });
