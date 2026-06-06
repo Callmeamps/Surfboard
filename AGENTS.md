@@ -103,7 +103,6 @@ Surfboard is an Electron-based browser with:
 
 - Use `bd` (beads) for all issue tracking
 - Non-interactive shell flags required (`cp -f`, `mv -f`, `rm -f`)
-- Co-author commits: `Co-Authored-By: Oz <oz-agent@warp.dev>`
 
 ## Agent Skills
 
