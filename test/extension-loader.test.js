@@ -138,6 +138,20 @@ describe('scanExtensions', () => {
 
     await expect(extensionLoader.scanExtensions('/restricted/dir')).rejects.toThrow('EACCES');
   });
+
+  test('skips directories where readManifest throws (broken symlink / ELOOP)', async () => {
+    mockReaddir.mockResolvedValue([
+      { name: 'good-ext', isDirectory: () => true },
+      { name: 'broken-link', isDirectory: () => true },
+    ]);
+    // First call succeeds (good ext), second throws ELOOP
+    mockReadFile
+      .mockResolvedValueOnce(JSON.stringify({ name: 'Good', version: '1.0' }))
+      .mockRejectedValueOnce(Object.assign(new Error('ELOOP: too many levels of symbolic links'), { code: 'ELOOP' }));
+
+    const result = await extensionLoader.scanExtensions('/fake/dir');
+    expect(result).toEqual(['/fake/dir/good-ext']);
+  });
 });
 
 // ─── loadExtension ─────────────────────────────────────────────────

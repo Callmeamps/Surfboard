@@ -48,9 +48,14 @@ async function scanExtensions(dir = DEFAULT_EXTENSIONS_DIR) {
  for (const entry of entries) {
  if (entry.isDirectory()) {
  const subdir = path.join(dir, entry.name);
+ try {
  const manifest = await readManifest(subdir);
  if (manifest) {
  results.push(subdir);
+ }
+ } catch (err) {
+ // Skip broken symlinks (ELOOP, ENOENT) and permission errors
+ console.warn(`[Extension] Skipping ${entry.name}:`, err.message);
  }
  }
  }
