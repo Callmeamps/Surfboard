@@ -690,7 +690,22 @@
         e.preventDefault();
         _toggleEditMode();
       }
+      // Ctrl+Shift+I — toggle inspect mode
+      else if (c && e.shiftKey && e.key === 'I') {
+        e.preventDefault();
+        _toggleInspectMode();
+      }
     });
+  }
+
+  // ── Inspect Mode ───────────────────────────────────────
+  function _toggleInspectMode() {
+    if (window.Inspector?.isEnabled()) {
+      window.Inspector.disable();
+    } else {
+      const root = $newTabPage?.classList.contains('hidden') ? $app : $newTabPage;
+      window.Inspector?.enable(root);
+    }
   }
 
   // ── Edit Mode ───────────────────────────────────────────
@@ -827,6 +842,16 @@
     window.EditorEngine?.onChange?.((type) => {
       if (type === 'enabled') {
         window.ModeManager?.set(window.ModeManager.MODES.EDIT);
+      } else if (type === 'disabled') {
+        window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+      }
+    });
+
+    // Inspector: init + ModeManager sync
+    window.Inspector?.init?.({ root: $app });
+    window.Inspector?.onChange?.((type) => {
+      if (type === 'enabled') {
+        window.ModeManager?.set(window.ModeManager.MODES.INSPECT);
       } else if (type === 'disabled') {
         window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
       }
