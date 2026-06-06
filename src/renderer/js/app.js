@@ -695,7 +695,22 @@
         e.preventDefault();
         _toggleInspectMode();
       }
+      // Ctrl+Shift+A — toggle action mode
+      else if (c && e.shiftKey && e.key === 'A') {
+        e.preventDefault();
+        _toggleActionMode();
+      }
     });
+  }
+
+  // ── Action Mode ───────────────────────────────────────
+  function _toggleActionMode() {
+    if (window.ActionRegistry?.isEnabled()) {
+      window.ActionRegistry.disable();
+    } else {
+      const root = $newTabPage?.classList.contains('hidden') ? $app : $newTabPage;
+      window.ActionRegistry?.enable(root);
+    }
   }
 
   // ── Inspect Mode ───────────────────────────────────────
@@ -852,6 +867,16 @@
     window.Inspector?.onChange?.((type) => {
       if (type === 'enabled') {
         window.ModeManager?.set(window.ModeManager.MODES.INSPECT);
+      } else if (type === 'disabled') {
+        window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+      }
+    });
+
+    // ActionRegistry: init + ModeManager sync
+    window.ActionRegistry?.init?.({ root: $app });
+    window.ActionRegistry?.onChange?.((type) => {
+      if (type === 'enabled') {
+        window.ModeManager?.set(window.ModeManager.MODES.ACTION);
       } else if (type === 'disabled') {
         window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
       }
