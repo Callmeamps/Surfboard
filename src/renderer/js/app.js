@@ -685,7 +685,23 @@
         const idx = all.indexOf(cur);
         window.ModeManager?.set(all[(idx + 1) % all.length]);
       }
+      // Ctrl+Shift+E — toggle edit mode
+      else if (c && e.shiftKey && e.key === 'E') {
+        e.preventDefault();
+        _toggleEditMode();
+      }
     });
+  }
+
+  // ── Edit Mode ───────────────────────────────────────────
+  function _toggleEditMode() {
+    if (window.EditorEngine?.isEnabled()) {
+      window.EditorEngine.disable();
+    } else {
+      // Enable on the content area (not sidebar)
+      const root = $newTabPage?.classList.contains('hidden') ? $app : $newTabPage;
+      window.EditorEngine?.enable(root);
+    }
   }
 
   // ── Boot ────────────────────────────────────────────────
@@ -803,6 +819,16 @@
       if (type === 'request') {
         // Default deny: auto-reject, caller must grant via UI
         detail.reject(new Error('not granted'));
+      }
+    });
+
+    // Editor engine: init + ModeManager sync
+    window.EditorEngine?.init?.({ root: $app });
+    window.EditorEngine?.onChange?.((type) => {
+      if (type === 'enabled') {
+        window.ModeManager?.set(window.ModeManager.MODES.EDIT);
+      } else if (type === 'disabled') {
+        window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
       }
     });
 

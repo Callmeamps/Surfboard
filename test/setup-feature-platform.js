@@ -11,9 +11,11 @@ global.document = {
 // Load the IIFE scripts as eval (they write to window)
 const modesSrc = fs.readFileSync(path.join(__dirname, '..', 'src/renderer/feature-platform/modes/index.js'), 'utf8');
 const trustSrc = fs.readFileSync(path.join(__dirname, '..', 'src/renderer/feature-platform/trust/index.js'), 'utf8');
+const editorSrc = fs.readFileSync(path.join(__dirname, '..', 'src/renderer/feature-platform/editor/index.js'), 'utf8');
 
 eval(modesSrc);
 eval(trustSrc);
+eval(editorSrc);
 
 // Pre-initialize for tests so one-shot flags are locked in
 window.ModeManager?.init?.();
