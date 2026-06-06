@@ -1,4 +1,7 @@
 node_modules/
+
+# Extension sources (unpacked Chrome extensions, not part of app source)
+sample-extension/
 storage.json
 *.swp
 *.bak
