@@ -700,7 +700,22 @@
         e.preventDefault();
         _toggleActionMode();
       }
+      // Ctrl+Shift+R — toggle workflow mode
+      else if (c && e.shiftKey && e.key === 'R') {
+        e.preventDefault();
+        _toggleWorkflowMode();
+      }
     });
+  }
+
+  // ── Workflow Mode ─────────────────────────────────────
+  function _toggleWorkflowMode() {
+    if (window.WorkflowEngine?.isEnabled()) {
+      window.WorkflowEngine.disable();
+    } else {
+      const root = $newTabPage?.classList.contains('hidden') ? $app : $newTabPage;
+      window.WorkflowEngine?.enable(root);
+    }
   }
 
   // ── Action Mode ───────────────────────────────────────
@@ -877,6 +892,16 @@
     window.ActionRegistry?.onChange?.((type) => {
       if (type === 'enabled') {
         window.ModeManager?.set(window.ModeManager.MODES.ACTION);
+      } else if (type === 'disabled') {
+        window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+      }
+    });
+
+    // WorkflowEngine: init + ModeManager sync
+    window.WorkflowEngine?.init?.({ root: $app });
+    window.WorkflowEngine?.onChange?.((type) => {
+      if (type === 'enabled') {
+        window.ModeManager?.set(window.ModeManager.MODES.RUN);
       } else if (type === 'disabled') {
         window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
       }
