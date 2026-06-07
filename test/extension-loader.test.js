@@ -83,8 +83,8 @@ describe('scanExtensions', () => {
 
   test('returns directories that have valid manifest.json', async () => {
     mockReaddir.mockResolvedValue([
-      { name: 'ext-1', isDirectory: () => true },
-      { name: 'ext-2', isDirectory: () => true },
+      { name: 'ext-1', isDirectory: () => true, isSymbolicLink: () => false },
+      { name: 'ext-2', isDirectory: () => true, isSymbolicLink: () => false },
     ]);
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Test', version: '1.0' }));
 
@@ -95,8 +95,8 @@ describe('scanExtensions', () => {
 
   test('skips directories without manifest.json', async () => {
     mockReaddir.mockResolvedValue([
-      { name: 'valid-ext', isDirectory: () => true },
-      { name: 'invalid-ext', isDirectory: () => true },
+      { name: 'valid-ext', isDirectory: () => true, isSymbolicLink: () => false },
+      { name: 'invalid-ext', isDirectory: () => true, isSymbolicLink: () => false },
     ]);
 
     // First call succeeds, second fails (no manifest)
@@ -111,14 +111,25 @@ describe('scanExtensions', () => {
 
   test('skips non-directory entries', async () => {
     mockReaddir.mockResolvedValue([
-      { name: 'some-file', isDirectory: () => false },
-      { name: 'ext-dir', isDirectory: () => true },
+      { name: 'some-file', isDirectory: () => false, isSymbolicLink: () => false },
+      { name: 'ext-dir', isDirectory: () => true, isSymbolicLink: () => false },
     ]);
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Ext', version: '1.0' }));
 
     const result = await extensionLoader.scanExtensions('/fake/dir');
 
     expect(result).toEqual(['/fake/dir/ext-dir']);
+  });
+
+  test('includes symlinked extension directories', async () => {
+    mockReaddir.mockResolvedValue([
+      { name: 'linked-ext', isDirectory: () => false, isSymbolicLink: () => true },
+    ]);
+    mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Linked', version: '1.0' }));
+
+    const result = await extensionLoader.scanExtensions('/fake/dir');
+
+    expect(result).toEqual(['/fake/dir/linked-ext']);
   });
 
   test('returns empty array when directory does not exist (ENOENT)', async () => {
@@ -141,8 +152,8 @@ describe('scanExtensions', () => {
 
   test('skips directories where readManifest throws (broken symlink / ELOOP)', async () => {
     mockReaddir.mockResolvedValue([
-      { name: 'good-ext', isDirectory: () => true },
-      { name: 'broken-link', isDirectory: () => true },
+      { name: 'good-ext', isDirectory: () => true, isSymbolicLink: () => false },
+      { name: 'broken-link', isDirectory: () => true, isSymbolicLink: () => false },
     ]);
     // First call succeeds (good ext), second throws ELOOP
     mockReadFile
@@ -326,8 +337,8 @@ describe('broadcastUpdate', () => {
 describe('autoLoadExtensions', () => {
   test('scans default dir and loads all valid extensions', async () => {
     mockReaddir.mockResolvedValue([
-      { name: 'ext-x', isDirectory: () => true },
-      { name: 'ext-y', isDirectory: () => true },
+      { name: 'ext-x', isDirectory: () => true, isSymbolicLink: () => false },
+      { name: 'ext-y', isDirectory: () => true, isSymbolicLink: () => false },
     ]);
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Auto', version: '1.0' }));
     mockLoadExtension.mockResolvedValue({ id: 'auto-1', name: 'Auto' });

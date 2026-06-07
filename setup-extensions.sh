@@ -44,13 +44,9 @@ fi
 # Copy browser-native-platform extension (symlink causes circular refs)
 BNP_NAME="browser-native-platform"
 BNP_LINK="${EXTENSIONS_DIR}/${BNP_NAME}"
-if [[ ! -e "${BNP_LINK}" || "${FORCE}" -eq 1 ]]; then
-    echo "Copying browser-native-platform extension"
-    rm -rf "${BNP_LINK}" 2>/dev/null
-    cp -rf "${BROWSER_NATIVE_PLATFORM_DIR}" "${BNP_LINK}"
-else
-    echo "Browser-native-platform extension already present: ${BNP_LINK}"
-fi
+echo "Syncing browser-native-platform extension"
+mkdir -p "${BNP_LINK}"
+cp -rf "${BROWSER_NATIVE_PLATFORM_DIR}/." "${BNP_LINK}/"
 
 # Symlink ublock-origin extension (use absolute path)
 UBO_NAME="ublock-origin"

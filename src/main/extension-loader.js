@@ -46,7 +46,7 @@ async function scanExtensions(dir = DEFAULT_EXTENSIONS_DIR) {
 
  const results = [];
  for (const entry of entries) {
- if (entry.isDirectory()) {
+ if (entry.isDirectory() || entry.isSymbolicLink()) {
  const subdir = path.join(dir, entry.name);
  try {
  const manifest = await readManifest(subdir);
