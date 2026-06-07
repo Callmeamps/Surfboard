@@ -16,9 +16,9 @@
 <body>
   <div id="app">
 
-    <!-- ── Sidebar: tabs + bookmarks ──────────────────────── -->
+    <!-- ── Left Sidebar: tabs + bookmarks ─────────────────── -->
     <aside id="sidebar">
-<div id="tab-list"></div>
+      <div id="tab-list"></div>
       <div id="minimap-container"></div>
       <button id="new-tab-btn" class="no-drag" aria-label="New Tab" title="New Tab (Ctrl+T)">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
@@ -141,7 +141,13 @@
             <div class="shortcut-row"><span>Close tab</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>W</kbd></span></div>
             <div class="shortcut-row"><span>History</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>H</kbd></span></div>
             <div class="shortcut-row"><span>Settings</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>,</kbd></span></div>
-            <div class="shortcut-row"><span>Sidecar</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd></span></div>
+            <div class="shortcut-row"><span>AI Sidecar</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd></span></div>
+            <div class="shortcut-row"><span>Shell</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>X</kbd></span></div>
+            <div class="shortcut-row"><span>Edit mode</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>E</kbd></span></div>
+            <div class="shortcut-row"><span>Inspect mode</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>I</kbd></span></div>
+            <div class="shortcut-row"><span>Actions</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>K</kbd></span></div>
+            <div class="shortcut-row"><span>Data</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>D</kbd></span></div>
+            <div class="shortcut-row"><span>Workflows</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>R</kbd></span></div>
             <div class="shortcut-row"><span>Sidebar</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>B</kbd></span></div>
           </div>
         </details>
@@ -149,45 +155,129 @@
 
       <div id="webview-container"></div>
 
-      <!-- ── Island (floating pill) ──────────────────────────── -->
-      <div id="island">
-        <button id="island-ai" class="island-btn" title="AI Sidecar (Ctrl+Shift+A)">
+    </div>
+
+    <!-- ── Right Sidebar: vertical island + popup panel ────── -->
+    <aside id="right-sidebar" class="collapsed">
+      <div id="right-sidebar-tools">
+        <button id="rsidebar-ai" class="rsidebar-btn" title="AI (Ctrl+Shift+A)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.3 4.7-3.2 6H8.2C6.3 13.7 5 11.5 5 9a7 7 0 0 1 7-7z"/>
             <path d="M9 17v1a3 3 0 0 0 6 0v-1"/>
             <line x1="9" y1="22" x2="15" y2="22"/>
-            <circle cx="9" cy="9" r="1" fill="currentColor"/>
-            <circle cx="15" cy="9" r="1" fill="currentColor"/>
           </svg>
+          <span class="rsidebar-dot" id="rsidebar-dot-ai"></span>
         </button>
-        <div class="island-divider"></div>
-        <button id="island-bookmark" class="island-btn" title="Bookmark this page">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-          </svg>
-        </button>
-        <div class="island-divider"></div>
-        <button id="island-shell" class="island-btn" title="Browser Shell">
+        <button id="rsidebar-shell" class="rsidebar-btn" title="Shell (Ctrl+Shift+X)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 5h16v14H4z"/>
             <polyline points="7 9 10 12 7 15"/>
             <line x1="12" y1="15" x2="17" y2="15"/>
           </svg>
+          <span class="rsidebar-dot" id="rsidebar-dot-shell"></span>
         </button>
-        <div class="island-divider"></div>
-        <button id="island-omnibar" class="island-btn" title="Search / URL (Ctrl+L)">
+        <button id="rsidebar-edit" class="rsidebar-btn" title="Edit (Ctrl+Shift+E)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+          </svg>
+          <span class="rsidebar-dot" id="rsidebar-dot-edit"></span>
+        </button>
+        <button id="rsidebar-inspect" class="rsidebar-btn" title="Inspect (Ctrl+Shift+I)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <span class="rsidebar-dot" id="rsidebar-dot-inspect"></span>
+        </button>
+        <button id="rsidebar-actions" class="rsidebar-btn" title="Actions (Ctrl+Shift+K)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+          <span class="rsidebar-dot" id="rsidebar-dot-actions"></span>
+        </button>
+        <button id="rsidebar-data" class="rsidebar-btn" title="Data (Ctrl+Shift+D)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5" rx="9" ry="3"/>
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+          </svg>
+          <span class="rsidebar-dot" id="rsidebar-dot-data"></span>
+        </button>
+        <button id="rsidebar-workflows" class="rsidebar-btn" title="Workflows (Ctrl+Shift+R)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="4" height="4" rx="1"/>
+            <rect x="10" y="7" width="4" height="4" rx="1"/>
+            <rect x="18" y="7" width="4" height="4" rx="1"/>
+            <rect x="2" y="15" width="4" height="4" rx="1"/>
+            <rect x="10" y="15" width="4" height="4" rx="1"/>
+            <path d="M6 11h4M14 11h4M6 19h4"/>
+          </svg>
+          <span class="rsidebar-dot" id="rsidebar-dot-workflows"></span>
+        </button>
+        <button id="rsidebar-miniapps" class="rsidebar-btn" title="Miniapps">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+            <rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+          <span class="rsidebar-dot" id="rsidebar-dot-miniapps"></span>
+        </button>
+        <div class="rsidebar-separator"></div>
+        <button id="rsidebar-omnibar" class="rsidebar-btn" title="Search / URL (Ctrl+L)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
         </button>
-        <div class="island-divider"></div>
-        <button id="island-extensions" class="island-btn" title="Extensions">
+        <button id="rsidebar-extensions" class="rsidebar-btn" title="Extensions">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="7" width="20" height="14" rx="2"/>
             <path d="M16 7V5a4 4 0 0 0-8 0v2"/>
           </svg>
         </button>
+        <button id="rsidebar-bookmark" class="rsidebar-btn" title="Bookmark this page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+        </button>
       </div>
+      <button id="right-sidebar-toggle" class="no-drag" title="Toggle right sidebar">
+        <svg width="6" height="10" viewBox="0 0 6 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <polyline points="1 1 5 5 1 9"/>
+        </svg>
+      </button>
+    </aside>
+
+    <!-- ── Popup Panel (slides out from right sidebar) ─────── -->
+    <div id="popup-panel" class="hidden">
+      <div id="popup-panel-header">
+        <span id="popup-panel-title">Panel</span>
+        <div id="popup-panel-actions">
+          <button id="popup-panel-pin" class="popup-panel-btn" title="Pin panel">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 17v5"/>
+              <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>
+            </svg>
+          </button>
+          <button id="popup-panel-close" class="popup-panel-btn" title="Close panel">
+            <svg width="12" height="12" viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="3" x2="3" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="popup-panel-content">
+        <!-- Dynamically populated -->
+      </div>
+    </div>
+
+    <!-- ── Canvas Host (full content area overlay) ────────── -->
+    <div id="canvas-host" class="hidden">
+      <div id="canvas-host-header">
+        <span id="canvas-host-title">Canvas</span>
+        <button id="canvas-host-close" class="popup-panel-btn" title="Close">
+          <svg width="12" height="12" viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="3" x2="3" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div id="canvas-host-content"></div>
     </div>
 
     <!-- ── AI Sidecar (floating, draggable) ─────────────────── -->
@@ -317,6 +407,9 @@
   <script src="feature-platform/ai/index.js"></script>
   <script src="js/papertm.js"></script>
   <script src="js/settings.js"></script>
+  <script src="feature-platform/miniapps/index.js"></script>
+  <script src="js/right-sidebar.js"></script>
+  <script src="js/canvas-pages.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

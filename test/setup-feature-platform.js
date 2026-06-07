@@ -17,7 +17,6 @@ const actionsSrc = fs.readFileSync(path.join(__dirname, '..', 'src/renderer/feat
 const workflowsSrc = fs.readFileSync(path.join(__dirname, '..', 'src/renderer/feature-platform/workflows/index.js'), 'utf8');
 const dataSrc = fs.readFileSync(path.join(__dirname, '..', 'src/renderer/feature-platform/data/index.js'), 'utf8');
 const aiSrc = fs.readFileSync(path.join(__dirname, '..', 'src/renderer/feature-platform/ai/index.js'), 'utf8');
-
 eval(modesSrc);
 eval(trustSrc);
 eval(editorSrc);

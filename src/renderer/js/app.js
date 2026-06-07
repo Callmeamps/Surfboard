@@ -22,11 +22,17 @@
   const $addrList      = document.getElementById('suggestions-list');
   const $newTabPage    = document.getElementById('new-tab-page');
   const $newTabInput   = document.getElementById('new-tab-input');
-  const $island        = document.getElementById('island');
-  const $islandAi      = document.getElementById('island-ai');
-  const $islandShell   = document.getElementById('island-shell');
-  const $islandOmnibar = document.getElementById('island-omnibar');
-  const $islandExt     = document.getElementById('island-extensions');
+  const $rsidebarAi       = document.getElementById('rsidebar-ai');
+  const $rsidebarShell    = document.getElementById('rsidebar-shell');
+  const $rsidebarEdit     = document.getElementById('rsidebar-edit');
+  const $rsidebarInspect  = document.getElementById('rsidebar-inspect');
+  const $rsidebarActions  = document.getElementById('rsidebar-actions');
+  const $rsidebarData     = document.getElementById('rsidebar-data');
+  const $rsidebarWorkflows= document.getElementById('rsidebar-workflows');
+  const $rsidebarMiniapps = document.getElementById('rsidebar-miniapps');
+  const $rsidebarOmnibar  = document.getElementById('rsidebar-omnibar');
+  const $rsidebarExt      = document.getElementById('rsidebar-extensions');
+  const $rsidebarBookmark = document.getElementById('rsidebar-bookmark');
   const $sidecar       = document.getElementById('sidecar');
   const $sidecarHdr    = document.getElementById('sidecar-header');
   const $sidecarModeAi = document.getElementById('sidecar-mode-ai');
@@ -695,8 +701,8 @@
         e.preventDefault();
         _toggleInspectMode();
       }
-      // Ctrl+Shift+A — toggle action mode
-      else if (c && e.shiftKey && e.key === 'A') {
+      // Ctrl+Shift+K — toggle action mode
+      else if (c && e.shiftKey && e.key === 'K') {
         e.preventDefault();
         _toggleActionMode();
       }
@@ -705,7 +711,56 @@
         e.preventDefault();
         _toggleWorkflowMode();
       }
+      // Ctrl+Shift+D — toggle data mode
+      else if (c && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        _toggleDataMode();
+      }
+      // Ctrl+Shift+X — toggle shell (canvas page)
+      else if (c && e.shiftKey && e.key === 'X') {
+        e.preventDefault();
+        window.CanvasPages?.open('bash');
+      }
+      // Ctrl+Shift+H — open history canvas page
+      else if (c && e.shiftKey && e.key === 'H') {
+        e.preventDefault();
+        window.CanvasPages?.open('history');
+      }
+      // Ctrl+Shift+B — open bookmarks canvas page
+      else if (c && e.shiftKey && e.key === 'B') {
+        e.preventDefault();
+        window.CanvasPages?.open('bookmarks');
+      }
+      // Ctrl+Shift+G — open agents canvas page
+      else if (c && e.shiftKey && e.key === 'G') {
+        e.preventDefault();
+        window.CanvasPages?.open('agents');
+      }
+      // Ctrl+Shift+J — open activity canvas page
+      else if (c && e.shiftKey && e.key === 'J') {
+        e.preventDefault();
+        window.CanvasPages?.open('activity');
+      }
     });
+  }
+
+  // ── Data Mode ─────────────────────────────────────────
+  function _toggleDataMode() {
+    if (window.DataPipeline?.isEnabled()) {
+      window.DataPipeline.disable();
+    } else {
+      const root = $newTabPage?.classList.contains('hidden') ? $app : $newTabPage;
+      window.DataPipeline?.enable(root);
+    }
+  }
+
+  // ── Miniapps ───────────────────────────────────────────
+  function _toggleMiniapps() {
+    const list = window.Miniapps?.getList?.() || [];
+    if (list.length > 0) {
+      // Open first miniapp as launcher
+      window.Miniapps.open(list[0].id);
+    }
   }
 
   // ── Workflow Mode ─────────────────────────────────────
@@ -772,8 +827,16 @@
 
     $sidecarModeAi?.addEventListener('click', () => _setShellMode('ai'));
     $sidecarModeShell?.addEventListener('click', () => _setShellMode('shell'));
-    $islandAi.addEventListener('click', () => _toggleSidecar('ai'));
-    $islandShell.addEventListener('click', () => _toggleSidecar('shell'));
+
+    // Right sidebar buttons
+    $rsidebarAi.addEventListener('click', () => _toggleSidecar('ai'));
+    $rsidebarShell.addEventListener('click', () => _toggleSidecar('shell'));
+    $rsidebarEdit.addEventListener('click', () => _toggleEditMode());
+    $rsidebarInspect.addEventListener('click', () => _toggleInspectMode());
+    $rsidebarActions.addEventListener('click', () => _toggleActionMode());
+    $rsidebarData.addEventListener('click', () => _toggleDataMode());
+    $rsidebarWorkflows.addEventListener('click', () => _toggleWorkflowMode());
+    $rsidebarMiniapps.addEventListener('click', () => _toggleMiniapps());
     $shellRun?.addEventListener('click', _sendShellCommand);
     $shellClear?.addEventListener('click', () => _shell.clear?.());
     $shellStop?.addEventListener('click', async () => {
@@ -807,8 +870,8 @@
     $newTabInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); _nav($newTabInput.value); } });
     document.querySelectorAll('.new-tab-link').forEach(l => l.addEventListener('click', (e) => { e.preventDefault(); if (l.dataset.url) _nav(l.dataset.url); }));
 
-    $islandOmnibar.addEventListener('click', _showAddr);
-    $islandExt.addEventListener('click', _toggleExt);
+    $rsidebarOmnibar.addEventListener('click', _showAddr);
+    $rsidebarExt.addEventListener('click', _toggleExt);
     $sidecarHdr.addEventListener('mousedown', _startDrag);
     document.addEventListener('mousemove', _onDrag);
     document.addEventListener('mouseup', _endDrag);
@@ -821,7 +884,7 @@
     $sidebarHistoryBtn.addEventListener('click', _toggleHistory);
     $sidebarSettingsBtn.addEventListener('click', _toggleSettings);
     // Bookmark wiring
-    $islandBookmark?.addEventListener('click', async () => {
+    $rsidebarBookmark?.addEventListener('click', async () => {
       const activeId = window.PaperTM?.getActiveTabId();
       if (!activeId) return;
       const wv = window.PaperTM?.getWebview(activeId);
@@ -906,6 +969,25 @@
         window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
       }
     });
+
+    // DataPipeline: init + ModeManager sync
+    window.DataPipeline?.init?.({ root: $app });
+    window.DataPipeline?.onChange?.((type) => {
+      if (type === 'enabled') {
+        window.ModeManager?.set(window.ModeManager.MODES.RESULT);
+      } else if (type === 'disabled') {
+        window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+      }
+    });
+
+    // AIClient: init
+    window.AIClient?.init?.({ root: $app });
+
+    // Miniapps: init
+    window.Miniapps?.reset?.();
+
+    // Canvas pages: init
+    window.CanvasPages?.init?.();
 
     _loadBookmarks(); _loadExts();
 
