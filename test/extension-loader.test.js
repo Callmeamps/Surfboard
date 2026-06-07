@@ -18,6 +18,10 @@ jest.mock('electron', () => ({
       loadExtension: mockLoadExtension,
       removeExtension: mockRemoveExtension,
     },
+    fromPartition: jest.fn(() => ({
+      loadExtension: mockLoadExtension,
+      removeExtension: mockRemoveExtension,
+    })),
   },
   BrowserWindow: {
     getAllWindows: jest.fn(() => []),
@@ -50,6 +54,10 @@ beforeEach(() => {
         loadExtension: mockLoadExtension,
         removeExtension: mockRemoveExtension,
       },
+      fromPartition: jest.fn(() => ({
+        loadExtension: mockLoadExtension,
+        removeExtension: mockRemoveExtension,
+      })),
     },
     BrowserWindow: {
       getAllWindows: jest.fn(() => []),

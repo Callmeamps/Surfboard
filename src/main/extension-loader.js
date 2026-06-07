@@ -2,6 +2,9 @@ const { session, BrowserWindow } = require('electron');
 const fs = require('fs/promises');
 const path = require('path');
 
+const SESSION_PARTITION = 'persist:riced-chromium';
+const extSession = session.fromPartition(SESSION_PARTITION);
+
 const DEFAULT_EXTENSIONS_DIR = path.join(
  process.env.HOME,
  '.config',
@@ -69,7 +72,7 @@ async function scanExtensions(dir = DEFAULT_EXTENSIONS_DIR) {
  */
 async function loadExtension(extensionPath) {
  try {
- const ext = await session.defaultSession.loadExtension(extensionPath, {
+ const ext = await extSession.loadExtension(extensionPath, {
  allowFileAccess: false,
  });
 
@@ -104,7 +107,7 @@ async function unloadExtension(id) {
  }
 
  try {
- await session.defaultSession.removeExtension(id);
+ await extSession.removeExtension(id);
  descriptor.enabled = false;
  extensions.set(id, descriptor);
  scheduleBroadcast();

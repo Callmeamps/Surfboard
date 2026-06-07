@@ -55,7 +55,7 @@
 
     const wv = document.createElement('webview');
     wv.dataset.tabId = tabId;
-    wv.setAttribute('partition', 'persist:riced');
+    wv.setAttribute('partition', 'persist:riced-chromium');
     wv.setAttribute('allowpopups', '');
     wv.setAttribute('httpreferrer', 'https://www.google.com/');
     wv.style.display = 'none';
