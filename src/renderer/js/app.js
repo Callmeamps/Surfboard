@@ -59,7 +59,7 @@
   const $winClose      = document.getElementById('window-close');
   const $sidebarHistoryBtn  = document.getElementById('sidebar-history-btn');
   const $sidebarSettingsBtn = document.getElementById('sidebar-settings-btn');
-  const $islandBookmark     = document.getElementById('island-bookmark');
+
   const $bmAddBtn           = document.getElementById('bookmarks-add-btn');
   const $bmImportBtn        = document.getElementById('bookmarks-import-btn');
   const $bmExportBtn        = document.getElementById('bookmarks-export-btn');
@@ -283,8 +283,8 @@
     $sidecarModeShell?.classList.toggle('active', sidecarMode === 'shell');
     $sidecarAiPanel?.classList.toggle('hidden', sidecarMode !== 'ai');
     $sidecarShellPanel?.classList.toggle('hidden', sidecarMode !== 'shell');
-    $islandAi.classList.toggle('active', sidecarMode === 'ai' && !$sidecar.classList.contains('sidecar-hidden'));
-    $islandShell.classList.toggle('active', sidecarMode === 'shell' && !$sidecar.classList.contains('sidecar-hidden'));
+    $rsidebarAi?.classList.toggle('active', sidecarMode === 'ai' && !$sidecar.classList.contains('sidecar-hidden'));
+    $rsidebarShell?.classList.toggle('active', sidecarMode === 'shell' && !$sidecar.classList.contains('sidecar-hidden'));
     if (!$sidecar.classList.contains('sidecar-hidden')) {
       if (sidecarMode === 'shell') {
         _ensureShellStarted();
@@ -302,8 +302,8 @@
 
   function _hideSidecar() {
     $sidecar.classList.add('sidecar-hidden');
-    $islandAi.classList.remove('active');
-    $islandShell.classList.remove('active');
+    $rsidebarAi?.classList.remove('active');
+    $rsidebarShell?.classList.remove('active');
   }
 
   function _toggleSidecar(mode = sidecarMode) {
@@ -347,7 +347,7 @@
   function _endDrag() { dragState = null; }
 
   // ── Extensions Panel ─────────────────────────────────────
-  function _toggleExt() { $extPanel.classList.toggle('open'); $islandExt.classList.toggle('active', $extPanel.classList.contains('open')); }
+  function _toggleExt() { $extPanel.classList.toggle('open'); $rsidebarExt?.classList.toggle('active', $extPanel.classList.contains('open')); }
 
   async function _loadExts() {
     try {
