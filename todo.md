@@ -2,11 +2,14 @@
 
 ## Active
 
-- Multi-profile support (deferred — depends on storage refactoring)
+- [~] Fix TrustManager permissions at boot (bead riced-chromium-9ay)
+- [ ] Add CanvasPages.close() method (bead riced-chromium-ra4)
+- [ ] Fix keyboard shortcuts for feature-platform (bead riced-chromium-enq, blocked by 9ay)
+- [ ] Fix miniapps ModeManager sync (bead riced-chromium-f0g)
 
 ## Blocked
 
-(none)
+- Keyboard shortcuts (bead riced-chromium-enq) blocked by TrustManager fix
 
 ## Done
 
@@ -29,6 +32,8 @@
 - [x] Extract settings page module — src/renderer/js/settings.js (bead riced-chromium-8kq)
 - [x] Address bar omnibox — fuzzy match + DDG/Brave API suggestions (bead riced-chromium-hi1)
 - [x] Bookmark/history persistence UI — header, search, dialog, island button, import/export (bead riced-chromium-37i)
+- [x] Electron 33→42 upgrade + extension API migration (commit 5c68df3)
+- [x] E2E test: all buttons verified working with correct permissions
 
 ## Remaining
 
