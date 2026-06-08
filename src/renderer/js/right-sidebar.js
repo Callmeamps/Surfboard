@@ -87,7 +87,8 @@
   function isCanvasOpen() { return _canvasOpen; }
 
   // ── Event wiring ─────────────────────────────────────────
-  $toggle.addEventListener('click', _toggleSidebar);
+  // NOTE: #right-sidebar-toggle click is handled by app.js init()
+  // to avoid double-toggle conflicts. Only popup/canvas close wired here.
   $popupClose.addEventListener('click', closePanel);
   $popupPin.addEventListener('click', pinPanel);
   $canvasClose.addEventListener('click', closeCanvas);

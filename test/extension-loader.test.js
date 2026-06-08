@@ -12,11 +12,15 @@ const mockReaddir = jest.fn();
 const mockJoin = jest.fn((...args) => args.join('/'));
 const mockBasename = jest.fn((p) => p.split('/').pop());
 
+const mockExtensions = {
+  loadExtension: mockLoadExtension,
+  unloadExtension: mockRemoveExtension,
+};
+
 jest.mock('electron', () => ({
   session: {
     defaultSession: {
-      loadExtension: mockLoadExtension,
-      removeExtension: mockRemoveExtension,
+      extensions: mockExtensions,
     },
     fromPartition: jest.fn(() => ({
       loadExtension: mockLoadExtension,
@@ -51,8 +55,7 @@ beforeEach(() => {
   jest.doMock('electron', () => ({
     session: {
       defaultSession: {
-        loadExtension: mockLoadExtension,
-        removeExtension: mockRemoveExtension,
+        extensions: mockExtensions,
       },
       fromPartition: jest.fn(() => ({
         loadExtension: mockLoadExtension,
@@ -178,7 +181,7 @@ describe('scanExtensions', () => {
 describe('loadExtension', () => {
   test('successful load returns {success:true, id, name, version, enabled, path}', async () => {
     const extInfo = { id: 'abc123', name: 'My Extension' };
-    mockLoadExtension.mockResolvedValue(extInfo);
+    mockLoadExtension.mockResolvedValue({ extension: extInfo });
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'My Extension', version: '2.1.0' }));
 
     const result = await extensionLoader.loadExtension('/fake/dir/my-ext');
@@ -197,7 +200,7 @@ describe('loadExtension', () => {
 
   test('uses manifest name when ext.name is missing', async () => {
     const extInfo = { id: 'no-name-id', name: '' };
-    mockLoadExtension.mockResolvedValue(extInfo);
+    mockLoadExtension.mockResolvedValue({ extension: extInfo });
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'From Manifest', version: '0.5.0' }));
 
     const result = await extensionLoader.loadExtension('/fake/dir/no-name');
@@ -207,7 +210,7 @@ describe('loadExtension', () => {
 
   test('falls back to directory basename when both ext.name and manifest.name are missing', async () => {
     const extInfo = { id: 'fallback-id', name: '' };
-    mockLoadExtension.mockResolvedValue(extInfo);
+    mockLoadExtension.mockResolvedValue({ extension: extInfo });
     mockReadFile.mockResolvedValue(JSON.stringify({ version: '1.0' }));
 
     const result = await extensionLoader.loadExtension('/fake/dir/fallback-ext');
@@ -232,7 +235,7 @@ describe('loadExtension', () => {
 describe('unloadExtension', () => {
   test('successful unload returns {success:true}', async () => {
     // First load an extension
-    mockLoadExtension.mockResolvedValue({ id: 'ext-1', name: 'Test' });
+    mockLoadExtension.mockResolvedValue({ extension: { id: 'ext-1', name: 'Test' } });
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Test', version: '1.0' }));
     await extensionLoader.loadExtension('/fake/dir/ext-1');
 
@@ -255,7 +258,7 @@ describe('unloadExtension', () => {
 
   test('unload already-disabled extension returns error', async () => {
     // Load then unload
-    mockLoadExtension.mockResolvedValue({ id: 'ext-2', name: 'Test' });
+    mockLoadExtension.mockResolvedValue({ extension: { id: 'ext-2', name: 'Test' } });
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Test', version: '1.0' }));
     await extensionLoader.loadExtension('/fake/dir/ext-2');
 
@@ -279,7 +282,7 @@ describe('listExtensions', () => {
   });
 
   test('returns array of extension descriptors after loading', async () => {
-    mockLoadExtension.mockResolvedValue({ id: 'ext-a', name: 'Alpha' });
+    mockLoadExtension.mockResolvedValue({ extension: { id: 'ext-a', name: 'Alpha' } });
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Alpha', version: '1.0' }));
     await extensionLoader.loadExtension('/fake/dir/alpha');
 
@@ -307,7 +310,7 @@ describe('broadcastUpdate', () => {
     ]);
 
     // Load an extension so listExtensions returns data
-    mockLoadExtension.mockResolvedValue({ id: 'ext-b', name: 'Beta' });
+    mockLoadExtension.mockResolvedValue({ extension: { id: 'ext-b', name: 'Beta' } });
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Beta', version: '3.0' }));
     await extensionLoader.loadExtension('/fake/dir/beta');
 
@@ -330,7 +333,7 @@ describe('broadcastUpdate', () => {
       { isDestroyed: () => true, webContents: { send: windowSend } },
     ]);
 
-    mockLoadExtension.mockResolvedValue({ id: 'ext-c', name: 'Gamma' });
+    mockLoadExtension.mockResolvedValue({ extension: { id: 'ext-c', name: 'Gamma' } });
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Gamma', version: '1.0' }));
     await extensionLoader.loadExtension('/fake/dir/gamma');
 
@@ -349,7 +352,7 @@ describe('autoLoadExtensions', () => {
       { name: 'ext-y', isDirectory: () => true, isSymbolicLink: () => false },
     ]);
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Auto', version: '1.0' }));
-    mockLoadExtension.mockResolvedValue({ id: 'auto-1', name: 'Auto' });
+    mockLoadExtension.mockResolvedValue({ extension: { id: 'auto-1', name: 'Auto' } });
 
     await extensionLoader.autoLoadExtensions();
 

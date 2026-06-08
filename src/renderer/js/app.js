@@ -672,6 +672,8 @@
   // ── Keyboard ─────────────────────────────────────────────
   function _setupKeys() {
     document.addEventListener('keydown', (e) => {
+      // F12 — toggle DevTools
+      if (e.key === 'F12') { e.preventDefault(); window.electronAPI?.window?.devtools?.(); return; }
       const c = e.ctrlKey || e.metaKey;
       if (c && e.key === 'l') { e.preventDefault(); _showAddr(); }
       else if (c && e.key === 't') { e.preventDefault(); _tabs.create('about:blank'); }
@@ -804,85 +806,117 @@
     }
   }
 
+  // ── Mode change toast ──────────────────────────────────
+  function _showModeIndicator(mode) {
+    if (!mode || mode === 'browse') return;
+    _toast('Mode: ' + mode, 1200);
+  }
+
   // ── Boot ────────────────────────────────────────────────
   async function init() {
-    $winMin.addEventListener('click', () => _win.minimize?.());
-    $winMax.addEventListener('click', () => _win.maximize?.());
-    $winClose.addEventListener('click', () => _win.close?.());
-    $sidebarToggle.addEventListener('click', _toggleSidebar);
-    $newTabBtn.addEventListener('click', () => _tabs.create('about:blank'));
-    window.PaperTM?.init({ tabList: $tabList, wvContainer: $wvContainer, addrInput: $addrInput, ntp: $newTabPage, storage: _storage, tabsIPC: _tabs, minimapContainer: $minimapContainer });
-    _tabs.onUpdated?.((d) => window.PaperTM?.onTabsUpdated(d));
-    window.electronAPI?.on?.('app:shortcut', (_event, action) => _handleShortcut(action));
-    _shell.onOutput?.((payload) => {
-      if (!payload) return;
-      _appendShellLine(payload.stream || 'stdout', payload.text || '');
-    });
-    _shell.onStatus?.((state) => {
-      if (!state) return;
-      shellState = { ...shellState, ...state };
-      _renderShellState();
-    });
-    _shell.onClear?.(() => _clearShellOutput());
+    try { $winMin?.addEventListener('click', () => _win.minimize?.()); } catch (e) { console.warn('[init] winMin:', e.message); }
+    try { $winMax?.addEventListener('click', () => _win.maximize?.()); } catch (e) { console.warn('[init] winMax:', e.message); }
+    try { $winClose?.addEventListener('click', () => _win.close?.()); } catch (e) { console.warn('[init] winClose:', e.message); }
+    try { $sidebarToggle?.addEventListener('click', _toggleSidebar); } catch (e) { console.warn('[init] sidebarToggle:', e.message); }
+    // Right sidebar toggle
+    try { document.getElementById('right-sidebar-toggle')?.addEventListener('click', () => window.RightSidebar?.toggleSidebar()); } catch (e) { console.warn('[init] rightSidebarToggle:', e.message); }
+    try { $newTabBtn?.addEventListener('click', () => _tabs.create('about:blank')); } catch (e) { console.warn('[init] newTabBtn:', e.message); }
+    try {
+      window.PaperTM?.init({ tabList: $tabList, wvContainer: $wvContainer, addrInput: $addrInput, ntp: $newTabPage, storage: _storage, tabsIPC: _tabs, minimapContainer: $minimapContainer });
+      _tabs.onUpdated?.((d) => window.PaperTM?.onTabsUpdated(d));
+    } catch (e) { console.warn('[init] PaperTM:', e.message); }
+    try {
+      window.electronAPI?.on?.('app:shortcut', (_event, action) => _handleShortcut(action));
+      _shell.onOutput?.((payload) => {
+        if (!payload) return;
+        _appendShellLine(payload.stream || 'stdout', payload.text || '');
+      });
+      _shell.onStatus?.((state) => {
+        if (!state) return;
+        shellState = { ...shellState, ...state };
+        _renderShellState();
+      });
+      _shell.onClear?.(() => _clearShellOutput());
+    } catch (e) { console.warn('[init] IPC/shell:', e.message); }
 
-    $sidecarModeAi?.addEventListener('click', () => _setShellMode('ai'));
-    $sidecarModeShell?.addEventListener('click', () => _setShellMode('shell'));
+    try {
+      $sidecarModeAi?.addEventListener('click', () => _setShellMode('ai'));
+      $sidecarModeShell?.addEventListener('click', () => _setShellMode('shell'));
+    } catch (e) { console.warn('[init] sidecar modes:', e.message); }
 
-    // Right sidebar buttons
-    $rsidebarAi.addEventListener('click', () => _toggleSidecar('ai'));
-    $rsidebarShell.addEventListener('click', () => _toggleSidecar('shell'));
-    $rsidebarEdit.addEventListener('click', () => _toggleEditMode());
-    $rsidebarInspect.addEventListener('click', () => _toggleInspectMode());
-    $rsidebarActions.addEventListener('click', () => _toggleActionMode());
-    $rsidebarData.addEventListener('click', () => _toggleDataMode());
-    $rsidebarWorkflows.addEventListener('click', () => _toggleWorkflowMode());
-    $rsidebarMiniapps.addEventListener('click', () => _toggleMiniapps());
-    $shellRun?.addEventListener('click', _sendShellCommand);
-    $shellClear?.addEventListener('click', () => _shell.clear?.());
-    $shellStop?.addEventListener('click', async () => {
-      if (shellState.running) {
-        await _shell.stop?.();
-      } else {
-        await _ensureShellStarted();
-      }
-    });
-    $shellInput?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        _sendShellCommand();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        _hideSidecar();
-      }
-    });
+    // Right sidebar buttons — all use ?. in case elements are missing
+    try {
+      const _btns = [
+        [$rsidebarAi, 'ai', () => _toggleSidecar('ai')],
+        [$rsidebarShell, 'shell', () => _toggleSidecar('shell')],
+        [$rsidebarEdit, 'edit', () => _toggleEditMode()],
+        [$rsidebarInspect, 'inspect', () => _toggleInspectMode()],
+        [$rsidebarActions, 'actions', () => _toggleActionMode()],
+        [$rsidebarData, 'data', () => _toggleDataMode()],
+        [$rsidebarWorkflows, 'workflows', () => _toggleWorkflowMode()],
+        [$rsidebarMiniapps, 'miniapps', () => _toggleMiniapps()],
+      ];
+      let attached = 0;
+      _btns.forEach(([el, name, fn]) => {
+        if (el) { el.addEventListener('click', fn); attached++; }
+        else console.warn('[init] MISSING button:', name);
+      });
+      console.log('[init] rsidebar buttons attached:', attached + '/8');
+    } catch (e) { console.error('[init] RIGHT SIDEBAR BUTTONS FAILED:', e.message); }
+    try {
+      $shellRun?.addEventListener('click', _sendShellCommand);
+      $shellClear?.addEventListener('click', () => _shell.clear?.());
+      $shellStop?.addEventListener('click', async () => {
+        if (shellState.running) {
+          await _shell.stop?.();
+        } else {
+          await _ensureShellStarted();
+        }
+      });
+      $shellInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          _sendShellCommand();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          _hideSidecar();
+        }
+      });
+    } catch (e) { console.warn('[init] shell controls:', e.message); }
 
-    $addrInput.addEventListener('input', () => { addrActiveIdx = -1; _buildSuggestions($addrInput.value); });
-    $addrInput.addEventListener('focus', () => { if ($addrInput.value) _buildSuggestions($addrInput.value); });
-    $addrInput.addEventListener('blur', () => setTimeout(() => { if (!$addrDD.contains(document.activeElement)) _hideSuggestions(); }, 150));
-    $addrInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); _nav($addrInput.value); }
-      else if (e.key === 'Escape') { e.preventDefault(); _hideAddr(); }
-      else if (e.key === 'ArrowDown') { e.preventDefault(); addrActiveIdx = Math.min(addrActiveIdx + 1, suggestions.length - 1); _renderSuggestions(); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); addrActiveIdx = Math.max(addrActiveIdx - 1, -1); _renderSuggestions(); }
-      else if (e.key === 'Tab' && suggestions.length) { e.preventDefault(); $addrInput.value = suggestions[0].url; _hideSuggestions(); }
-    });
+    try {
+      $addrInput?.addEventListener('input', () => { addrActiveIdx = -1; _buildSuggestions($addrInput.value); });
+      $addrInput?.addEventListener('focus', () => { if ($addrInput.value) _buildSuggestions($addrInput.value); });
+      $addrInput?.addEventListener('blur', () => setTimeout(() => { if (!$addrDD?.contains(document.activeElement)) _hideSuggestions(); }, 150));
+      $addrInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); _nav($addrInput.value); }
+        else if (e.key === 'Escape') { e.preventDefault(); _hideAddr(); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); addrActiveIdx = Math.min(addrActiveIdx + 1, suggestions.length - 1); _renderSuggestions(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); addrActiveIdx = Math.max(addrActiveIdx - 1, -1); _renderSuggestions(); }
+        else if (e.key === 'Tab' && suggestions.length) { e.preventDefault(); $addrInput.value = suggestions[0].url; _hideSuggestions(); }
+      });
+    } catch (e) { console.warn('[init] address bar:', e.message); }
 
-    $newTabInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); _nav($newTabInput.value); } });
-    document.querySelectorAll('.new-tab-link').forEach(l => l.addEventListener('click', (e) => { e.preventDefault(); if (l.dataset.url) _nav(l.dataset.url); }));
+    try {
+      $newTabInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); _nav($newTabInput.value); } });
+      document.querySelectorAll('.new-tab-link').forEach(l => l.addEventListener('click', (e) => { e.preventDefault(); if (l.dataset.url) _nav(l.dataset.url); }));
+    } catch (e) { console.warn('[init] new tab:', e.message); }
 
-    $rsidebarOmnibar.addEventListener('click', _showAddr);
-    $rsidebarExt.addEventListener('click', _toggleExt);
-    $sidecarHdr.addEventListener('mousedown', _startDrag);
-    document.addEventListener('mousemove', _onDrag);
-    document.addEventListener('mouseup', _endDrag);
-    $sidecarConfig.addEventListener('click', _openAiConfig);
-    $sidecarClose.addEventListener('click', _hideSidecar);
-    $chatSend.addEventListener('click', _sendChat);
-    $chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendChat(); } });
-    $chatInput.addEventListener('input', () => { $chatInput.style.height = 'auto'; $chatInput.style.height = Math.min($chatInput.scrollHeight, 100) + 'px'; });
-    $extPanelClose.addEventListener('click', _toggleExt);
-    $sidebarHistoryBtn.addEventListener('click', _toggleHistory);
-    $sidebarSettingsBtn.addEventListener('click', _toggleSettings);
+    try {
+      $rsidebarOmnibar?.addEventListener('click', _showAddr);
+      $rsidebarExt?.addEventListener('click', _toggleExt);
+      $sidecarHdr?.addEventListener('mousedown', _startDrag);
+      document.addEventListener('mousemove', _onDrag);
+      document.addEventListener('mouseup', _endDrag);
+      $sidecarConfig?.addEventListener('click', _openAiConfig);
+      $sidecarClose?.addEventListener('click', _hideSidecar);
+      $chatSend?.addEventListener('click', _sendChat);
+      $chatInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendChat(); } });
+      $chatInput?.addEventListener('input', () => { $chatInput.style.height = 'auto'; $chatInput.style.height = Math.min($chatInput.scrollHeight, 100) + 'px'; });
+      $extPanelClose?.addEventListener('click', _toggleExt);
+      $sidebarHistoryBtn?.addEventListener('click', _toggleHistory);
+      $sidebarSettingsBtn?.addEventListener('click', _toggleSettings);
+    } catch (e) { console.warn('[init] misc listeners:', e.message); }
     // Bookmark wiring
     $rsidebarBookmark?.addEventListener('click', async () => {
       const activeId = window.PaperTM?.getActiveTabId();
@@ -918,76 +952,88 @@
     _setupKeys();
 
     // Feature platform: modes + trust bootstrap
-    window.ModeManager?.init?.();
-    window.TrustManager?.registerDefaults?.([{ module: 'shell', action: 'execute' }]);
-    window.ModeManager?.onChange?.((detail) => {
-      $shellHint.textContent = 'Mode: ' + detail.to;
-    });
-    window.TrustManager?.onRequest?.((type, detail) => {
-      if (type === 'request') {
-        // Default deny: auto-reject, caller must grant via UI
-        detail.reject(new Error('not granted'));
-      }
-    });
+    try {
+      window.ModeManager?.init?.();
+      window.TrustManager?.registerDefaults?.([{ module: 'shell', action: 'execute' }]);
+      window.ModeManager?.onChange?.((detail) => {
+        if ($shellHint) $shellHint.textContent = 'Mode: ' + detail.to;
+        _showModeIndicator(detail.to);
+      });
+      window.TrustManager?.onRequest?.((type, detail) => {
+        if (type === 'request') {
+          detail.reject(new Error('not granted'));
+        }
+      });
+    } catch (e) { console.warn('[init] mode/trust:', e.message); }
 
     // Editor engine: init + ModeManager sync
-    window.EditorEngine?.init?.({ root: $app });
-    window.EditorEngine?.onChange?.((type) => {
-      if (type === 'enabled') {
-        window.ModeManager?.set(window.ModeManager.MODES.EDIT);
-      } else if (type === 'disabled') {
-        window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
-      }
-    });
+    try {
+      window.EditorEngine?.init?.({ root: $app });
+      window.EditorEngine?.onChange?.((type) => {
+        if (type === 'enabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.EDIT);
+        } else if (type === 'disabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+        }
+      });
+    } catch (e) { console.warn('[init] EditorEngine:', e.message); }
 
     // Inspector: init + ModeManager sync
-    window.Inspector?.init?.({ root: $app });
-    window.Inspector?.onChange?.((type) => {
-      if (type === 'enabled') {
-        window.ModeManager?.set(window.ModeManager.MODES.INSPECT);
-      } else if (type === 'disabled') {
-        window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
-      }
-    });
+    try {
+      window.Inspector?.init?.({ root: $app });
+      window.Inspector?.onChange?.((type) => {
+        if (type === 'enabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.INSPECT);
+        } else if (type === 'disabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+        }
+      });
+    } catch (e) { console.warn('[init] Inspector:', e.message); }
 
     // ActionRegistry: init + ModeManager sync
-    window.ActionRegistry?.init?.({ root: $app });
-    window.ActionRegistry?.onChange?.((type) => {
-      if (type === 'enabled') {
-        window.ModeManager?.set(window.ModeManager.MODES.ACTION);
-      } else if (type === 'disabled') {
-        window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
-      }
-    });
+    try {
+      window.ActionRegistry?.init?.({ root: $app });
+      window.ActionRegistry?.onChange?.((type) => {
+        if (type === 'enabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.ACTION);
+        } else if (type === 'disabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+        }
+      });
+    } catch (e) { console.warn('[init] ActionRegistry:', e.message); }
 
     // WorkflowEngine: init + ModeManager sync
-    window.WorkflowEngine?.init?.({ root: $app });
-    window.WorkflowEngine?.onChange?.((type) => {
-      if (type === 'enabled') {
-        window.ModeManager?.set(window.ModeManager.MODES.RUN);
-      } else if (type === 'disabled') {
-        window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
-      }
-    });
+    try {
+      window.WorkflowEngine?.init?.({ root: $app });
+      window.WorkflowEngine?.onChange?.((type) => {
+        if (type === 'enabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.RUN);
+        } else if (type === 'disabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+        }
+      });
+    } catch (e) { console.warn('[init] WorkflowEngine:', e.message); }
 
     // DataPipeline: init + ModeManager sync
-    window.DataPipeline?.init?.({ root: $app });
-    window.DataPipeline?.onChange?.((type) => {
-      if (type === 'enabled') {
-        window.ModeManager?.set(window.ModeManager.MODES.RESULT);
-      } else if (type === 'disabled') {
-        window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
-      }
-    });
+    try {
+      window.DataPipeline?.init?.({ root: $app });
+      window.DataPipeline?.onChange?.((type) => {
+        if (type === 'enabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.RESULT);
+        } else if (type === 'disabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+        }
+      });
+    } catch (e) { console.warn('[init] DataPipeline:', e.message); }
 
     // AIClient: init
-    window.AIClient?.init?.({ root: $app });
+    try { window.AIClient?.init?.({ root: $app }); } catch (e) { console.warn('[init] AIClient:', e.message); }
 
     // Miniapps: init
-    window.Miniapps?.reset?.();
+    try { window.Miniapps?.reset?.(); } catch (e) { console.warn('[init] Miniapps:', e.message); }
 
     // Canvas pages: init
-    window.CanvasPages?.init?.();
+    try { window.CanvasPages?.init?.(); } catch (e) { console.warn('[init] CanvasPages:', e.message); }
 
     _loadBookmarks(); _loadExts();
 
