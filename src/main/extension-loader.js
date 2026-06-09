@@ -73,6 +73,8 @@ async function scanExtensions(dir = DEFAULT_EXTENSIONS_DIR) {
 async function loadExtension(extensionPath) {
  try {
  const ext = await extSession.extensions.loadExtension(extensionPath, {
+ allowFileAccess: false,
+ });
  if (!ext) throw new Error('extensions.loadExtension returned null');
  const extension = ext.extension ?? ext;
 
@@ -108,6 +110,7 @@ async function unloadExtension(id) {
 
  try {
  await extSession.extensions.unloadExtension(id);
+>>>>>>> 80aed9e (fix: restore symlink scan, partition session, trust concurrency, ai perm, eval, shortcuts)
  descriptor.enabled = false;
  extensions.set(id, descriptor);
  scheduleBroadcast();

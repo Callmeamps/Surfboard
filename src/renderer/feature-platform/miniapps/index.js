@@ -120,6 +120,41 @@
   function _wireRenderedMiniapp(id) {
     requestAnimationFrame(() => {
       if (id === 'calculator') {
+        // Safe expression evaluator — no eval()
+        function _calcEval(expr) {
+          const s = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/[^0-9+\-*/.()]/g, '');
+          if (!s) return 0;
+          try {
+            const tokens = s.match(/\d+\.?\d*|[+\-*/()]/g) || [];
+            let pos = 0;
+            function parseExpr() {
+              let left = parseTerm();
+              while (pos < tokens.length && (tokens[pos] === '+' || tokens[pos] === '-')) {
+                const op = tokens[pos++];
+                const right = parseTerm();
+                left = op === '+' ? left + right : left - right;
+              }
+              return left;
+            }
+            function parseTerm() {
+              let left = parseFactor();
+              while (pos < tokens.length && (tokens[pos] === '*' || tokens[pos] === '/')) {
+                const op = tokens[pos++];
+                const right = parseFactor();
+                if (op === '*') left = left * right;
+                else { if (right === 0) throw new Error('div0'); left = left / right; }
+              }
+              return left;
+            }
+            function parseFactor() {
+              if (tokens[pos] === '(') { pos++; const v = parseExpr(); pos++; return v; }
+              return parseFloat(tokens[pos++]);
+            }
+            const result = parseExpr();
+            if (!isFinite(result)) throw new Error('nan');
+            return Math.round(result * 1e10) / 1e10;
+          } catch { return NaN; }
+        }
         document.querySelectorAll('.calc-btn').forEach(btn => {
           btn.addEventListener('click', () => {
             const display = document.getElementById('calc-display');
@@ -127,7 +162,8 @@
             const val = btn.dataset.val;
             if (val === 'C') { display.value = '0'; return; }
             if (val === '=') {
-              try { display.value = String(eval(display.value.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-'))); } catch { display.value = 'Error'; }
+              const result = _calcEval(display.value);
+              display.value = isNaN(result) ? 'Error' : String(result);
               return;
             }
             if (val === '±') { display.value = String(-parseFloat(display.value) || 0); return; }

@@ -10,7 +10,7 @@
   let permissions = {};
   let listeners = [];
   let auditLog = [];
-  let pendingRequests = new Map(); // module::action -> {resolve, reject}
+  let pendingRequests = new Map(); // module::action -> [{resolve, reject}, ...]
 
   function _key(module, action) { return module + '::' + action; }
 
@@ -42,15 +42,17 @@
     return new Promise((resolve, reject) => {
       const key = _key(module, action);
       if (permissions[key]) { return resolve(true); }
-      const existing = pendingRequests.get(key);
-      if (existing) { return existing.push({ resolve, reject }); }
+      if (pendingRequests.has(key)) {
+        pendingRequests.get(key).push({ resolve, reject });
+        return;
+      }
       pendingRequests.set(key, [{ resolve, reject }]);
       _notify('request', { module, action, resolve: (val) => {
-        const resolvers = pendingRequests.get(key);
+        const resolvers = pendingRequests.get(key) || [];
         pendingRequests.delete(key);
         resolvers.forEach(r => r.resolve(!!val));
       }, reject: (err) => {
-        const resolvers = pendingRequests.get(key);
+        const resolvers = pendingRequests.get(key) || [];
         pendingRequests.delete(key);
         resolvers.forEach(r => r.reject(err));
       }});

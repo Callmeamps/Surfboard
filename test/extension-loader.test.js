@@ -23,8 +23,7 @@ jest.mock('electron', () => ({
       extensions: mockExtensions,
     },
     fromPartition: jest.fn(() => ({
-      loadExtension: mockLoadExtension,
-      removeExtension: mockRemoveExtension,
+      extensions: mockExtensions,
     })),
   },
   BrowserWindow: {
@@ -58,8 +57,7 @@ beforeEach(() => {
         extensions: mockExtensions,
       },
       fromPartition: jest.fn(() => ({
-        loadExtension: mockLoadExtension,
-        removeExtension: mockRemoveExtension,
+        extensions: mockExtensions,
       })),
     },
     BrowserWindow: {
@@ -90,6 +88,17 @@ describe('scanExtensions', () => {
 
     expect(result).toEqual([]);
     expect(mockReaddir).toHaveBeenCalledWith('/fake/dir', { withFileTypes: true });
+  });
+
+  test('includes symlinked extension directories', async () => {
+    mockReaddir.mockResolvedValue([
+      { name: 'linked-ext', isDirectory: () => false, isSymbolicLink: () => true },
+    ]);
+    mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Linked', version: '1.0' }));
+
+    const result = await extensionLoader.scanExtensions('/fake/dir');
+
+    expect(result).toEqual(['/fake/dir/linked-ext']);
   });
 
   test('returns directories that have valid manifest.json', async () => {
@@ -181,7 +190,7 @@ describe('scanExtensions', () => {
 describe('loadExtension', () => {
   test('successful load returns {success:true, id, name, version, enabled, path}', async () => {
     const extInfo = { id: 'abc123', name: 'My Extension' };
-    mockLoadExtension.mockResolvedValue({ extension: extInfo });
+    mockLoadExtension.mockResolvedValue(extInfo);
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'My Extension', version: '2.1.0' }));
 
     const result = await extensionLoader.loadExtension('/fake/dir/my-ext');
@@ -196,6 +205,15 @@ describe('loadExtension', () => {
       icon: '',
     });
     expect(mockLoadExtension).toHaveBeenCalledWith('/fake/dir/my-ext', { allowFileAccess: false });
+  });
+
+  test('handles null return from extensions.loadExtension', async () => {
+    mockLoadExtension.mockResolvedValue(null);
+
+    const result = await extensionLoader.loadExtension('/fake/dir/null-ext');
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('extensions.loadExtension returned null');
   });
 
   test('uses manifest name when ext.name is missing', async () => {

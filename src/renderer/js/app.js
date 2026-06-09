@@ -718,7 +718,12 @@
         e.preventDefault();
         _toggleDataMode();
       }
-      // Ctrl+Shift+X — toggle shell (canvas page)
+      // Ctrl+Shift+S — toggle sidecar shell
+      else if (c && e.shiftKey && e.key === 'S') {
+        e.preventDefault();
+        _toggleSidecar('shell');
+      }
+      // Ctrl+Shift+X — open bash canvas page
       else if (c && e.shiftKey && e.key === 'X') {
         e.preventDefault();
         window.CanvasPages?.open('bash');
@@ -967,6 +972,7 @@
         { module: 'actions', action: 'execute' },
         { module: 'data', action: 'scrape' },
         { module: 'workflows', action: 'execute' },
+        { module: 'ai', action: 'complete' },
       ]);
       window.ModeManager?.onChange?.((detail) => {
         if ($shellHint) $shellHint.textContent = 'Mode: ' + detail.to;

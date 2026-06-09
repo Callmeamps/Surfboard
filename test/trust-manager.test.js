@@ -165,4 +165,41 @@ describe('TrustManager', () => {
     window.TrustManager.request('x', 'y');
     expect(count).toBe(1);
   });
+
+  // ── Concurrent requests ──────────────────────────────────────
+  test('concurrent requests for same permission all resolve', async () => {
+    let pendingDetail = null;
+    window.TrustManager.onRequest((type, detail) => {
+      pendingDetail = detail;
+    });
+
+    const p1 = window.TrustManager.request('shell', 'execute');
+    const p2 = window.TrustManager.request('shell', 'execute');
+    const p3 = window.TrustManager.request('shell', 'execute');
+
+    // All three should be pending (no onRequest listener called again)
+    expect(pendingDetail).not.toBeNull();
+
+    pendingDetail.resolve(true);
+
+    const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
+    expect(r1).toBe(true);
+    expect(r2).toBe(true);
+    expect(r3).toBe(true);
+  });
+
+  test('concurrent requests for same permission all reject', async () => {
+    let pendingDetail = null;
+    window.TrustManager.onRequest((type, detail) => {
+      pendingDetail = detail;
+    });
+
+    const p1 = window.TrustManager.request('ai', 'complete');
+    const p2 = window.TrustManager.request('ai', 'complete');
+
+    pendingDetail.reject(new Error('denied'));
+
+    await expect(p1).rejects.toThrow('denied');
+    await expect(p2).rejects.toThrow('denied');
+  });
 });
