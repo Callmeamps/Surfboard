@@ -129,10 +129,15 @@
     return d.innerHTML;
   }
 
+  function close() {
+    window.RightSidebar?.closeCanvas();
+  }
+
   // ── Public API ───────────────────────────────────────────
   window.CanvasPages = {
     init,
     open,
+    close,
   };
 
   if (document.readyState !== 'loading') init();

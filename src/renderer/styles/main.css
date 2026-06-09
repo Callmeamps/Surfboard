@@ -768,6 +768,10 @@ html, body {
   background: rgba(0, 0, 0, 0.6);
   display: flex; align-items: center; justify-content: center;
   backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+.changelog-overlay .changelog-dialog {
+  pointer-events: auto;
 }
 .changelog-overlay.hidden { display: none; }
 

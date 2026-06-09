@@ -762,6 +762,12 @@
     if (list.length > 0) {
       // Open first miniapp as launcher
       window.Miniapps.open(list[0].id);
+      // Sync with ModeManager
+      if (window.ModeManager) {
+        window.ModeManager.set('browse');
+      }
+      // Show active indicator
+      $rsidebarMiniapps?.classList.add('active');
     }
   }
 
@@ -954,7 +960,14 @@
     // Feature platform: modes + trust bootstrap
     try {
       window.ModeManager?.init?.();
-      window.TrustManager?.registerDefaults?.([{ module: 'shell', action: 'execute' }]);
+      window.TrustManager?.registerDefaults?.([
+        { module: 'shell', action: 'execute' },
+        { module: 'editor', action: 'write' },
+        { module: 'inspector', action: 'inspectDom' },
+        { module: 'actions', action: 'execute' },
+        { module: 'data', action: 'scrape' },
+        { module: 'workflows', action: 'execute' },
+      ]);
       window.ModeManager?.onChange?.((detail) => {
         if ($shellHint) $shellHint.textContent = 'Mode: ' + detail.to;
         _showModeIndicator(detail.to);
