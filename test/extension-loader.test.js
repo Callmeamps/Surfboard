@@ -20,10 +20,12 @@ const mockExtensions = {
 jest.mock('electron', () => ({
   session: {
     defaultSession: {
-      extensions: mockExtensions,
+      loadExtension: mockLoadExtension,
+      removeExtension: mockRemoveExtension,
     },
     fromPartition: jest.fn(() => ({
-      extensions: mockExtensions,
+      loadExtension: mockLoadExtension,
+      removeExtension: mockRemoveExtension,
     })),
   },
   BrowserWindow: {
@@ -54,10 +56,12 @@ beforeEach(() => {
   jest.doMock('electron', () => ({
     session: {
       defaultSession: {
-        extensions: mockExtensions,
+        loadExtension: mockLoadExtension,
+        removeExtension: mockRemoveExtension,
       },
       fromPartition: jest.fn(() => ({
-        extensions: mockExtensions,
+        loadExtension: mockLoadExtension,
+        removeExtension: mockRemoveExtension,
       })),
     },
     BrowserWindow: {
@@ -213,7 +217,7 @@ describe('loadExtension', () => {
     const result = await extensionLoader.loadExtension('/fake/dir/null-ext');
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe('extensions.loadExtension returned null');
+    expect(result.error).toBe('session.loadExtension returned null');
   });
 
   test('uses manifest name when ext.name is missing', async () => {
