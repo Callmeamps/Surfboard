@@ -1,12 +1,15 @@
 node_modules/
 
+# Mise local overrides (user-specific, not committed)
+mise.local.toml
+mise.lock
+
 # Extension sources (unpacked Chrome extensions, not part of app source)
 sample-extension/
 storage.json
 *.swp
 *.bak
 .DS_Store
-
 
 # Beads / Dolt files (added by bd init)
 .dolt/

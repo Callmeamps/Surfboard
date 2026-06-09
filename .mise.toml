@@ -1,0 +1,22 @@
+[tools]
+node = "22"
+
+[tasks]
+# ── Lifecycle ──────────────────────────────────────────────────
+install-deps = "npm install"
+setup = { description = "Symlink extensions for dev", run = "./setup-extensions.sh" }
+
+# ── Dev ────────────────────────────────────────────────────────
+dev  = { description = "Launch Electron in dev mode (hot reload)", run = "npm run dev" }
+start = { description = "Launch Electron", run = "npm start" }
+
+# ── Testing ────────────────────────────────────────────────────
+test = { description = "Run all Jest unit tests", run = "npm test" }
+e2e  = { description = "Run E2E smoke test (requires display)", run = "node test/e2e/smoke-test.mjs" }
+
+# ── CI (runs on GitHub Actions via mise-action) ────────────────
+ci = { description = "Full CI pipeline: clean install + test", run = "npm ci && npm test" }
+
+# ── Quality ────────────────────────────────────────────────────
+outdated = { description = "Check for outdated npm deps", run = "npm outdated" }
+doctor   = { description = "Check mise installation", run = "mise doctor" }
