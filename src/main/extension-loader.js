@@ -110,7 +110,6 @@ async function unloadExtension(id) {
 
  try {
  await extSession.extensions.unloadExtension(id);
->>>>>>> 80aed9e (fix: restore symlink scan, partition session, trust concurrency, ai perm, eval, shortcuts)
  descriptor.enabled = false;
  extensions.set(id, descriptor);
  scheduleBroadcast();
