@@ -72,20 +72,22 @@ async function scanExtensions(dir = DEFAULT_EXTENSIONS_DIR) {
  */
 async function loadExtension(extensionPath) {
  try {
- const ext = await extSession.loadExtension(extensionPath, {
+ const ext = await extSession.extensions.loadExtension(extensionPath, {
  allowFileAccess: false,
  });
+ if (!ext) throw new Error('extensions.loadExtension returned null');
+ const extension = ext.extension ?? ext;
 
  const manifest = await readManifest(extensionPath);
  const descriptor = {
- id: ext.id,
- name: ext.name || (manifest?.name || path.basename(extensionPath)),
+ id: extension.id,
+ name: extension.name || (manifest?.name || path.basename(extensionPath)),
  version: manifest?.version || '0.0.0',
  enabled: true,
  path: extensionPath,
  icon: '', // Could be set from manifest/icons
  };
- extensions.set(ext.id, descriptor);
+ extensions.set(extension.id, descriptor);
 
  scheduleBroadcast();
  return { success: true, ...descriptor };
@@ -107,7 +109,7 @@ async function unloadExtension(id) {
  }
 
  try {
- await extSession.removeExtension(id);
+ await extSession.extensions.unloadExtension(id);
  descriptor.enabled = false;
  extensions.set(id, descriptor);
  scheduleBroadcast();

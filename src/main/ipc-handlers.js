@@ -291,6 +291,13 @@ function register() {
     windowManager.close();
   });
 
+  ipcMain.on('window:devtools', () => {
+    const win = windowManager.getWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.toggleDevTools();
+    }
+  });
+
   ipcMain.handle('window:isMaximized', () => {
     return windowManager.isMaximized();
   });

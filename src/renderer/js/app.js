@@ -22,11 +22,17 @@
   const $addrList      = document.getElementById('suggestions-list');
   const $newTabPage    = document.getElementById('new-tab-page');
   const $newTabInput   = document.getElementById('new-tab-input');
-  const $island        = document.getElementById('island');
-  const $islandAi      = document.getElementById('island-ai');
-  const $islandShell   = document.getElementById('island-shell');
-  const $islandOmnibar = document.getElementById('island-omnibar');
-  const $islandExt     = document.getElementById('island-extensions');
+  const $rsidebarAi       = document.getElementById('rsidebar-ai');
+  const $rsidebarShell    = document.getElementById('rsidebar-shell');
+  const $rsidebarEdit     = document.getElementById('rsidebar-edit');
+  const $rsidebarInspect  = document.getElementById('rsidebar-inspect');
+  const $rsidebarActions  = document.getElementById('rsidebar-actions');
+  const $rsidebarData     = document.getElementById('rsidebar-data');
+  const $rsidebarWorkflows= document.getElementById('rsidebar-workflows');
+  const $rsidebarMiniapps = document.getElementById('rsidebar-miniapps');
+  const $rsidebarOmnibar  = document.getElementById('rsidebar-omnibar');
+  const $rsidebarExt      = document.getElementById('rsidebar-extensions');
+  const $rsidebarBookmark = document.getElementById('rsidebar-bookmark');
   const $sidecar       = document.getElementById('sidecar');
   const $sidecarHdr    = document.getElementById('sidecar-header');
   const $sidecarModeAi = document.getElementById('sidecar-mode-ai');
@@ -53,7 +59,7 @@
   const $winClose      = document.getElementById('window-close');
   const $sidebarHistoryBtn  = document.getElementById('sidebar-history-btn');
   const $sidebarSettingsBtn = document.getElementById('sidebar-settings-btn');
-  const $islandBookmark     = document.getElementById('island-bookmark');
+
   const $bmAddBtn           = document.getElementById('bookmarks-add-btn');
   const $bmImportBtn        = document.getElementById('bookmarks-import-btn');
   const $bmExportBtn        = document.getElementById('bookmarks-export-btn');
@@ -277,8 +283,8 @@
     $sidecarModeShell?.classList.toggle('active', sidecarMode === 'shell');
     $sidecarAiPanel?.classList.toggle('hidden', sidecarMode !== 'ai');
     $sidecarShellPanel?.classList.toggle('hidden', sidecarMode !== 'shell');
-    $islandAi.classList.toggle('active', sidecarMode === 'ai' && !$sidecar.classList.contains('sidecar-hidden'));
-    $islandShell.classList.toggle('active', sidecarMode === 'shell' && !$sidecar.classList.contains('sidecar-hidden'));
+    $rsidebarAi?.classList.toggle('active', sidecarMode === 'ai' && !$sidecar.classList.contains('sidecar-hidden'));
+    $rsidebarShell?.classList.toggle('active', sidecarMode === 'shell' && !$sidecar.classList.contains('sidecar-hidden'));
     if (!$sidecar.classList.contains('sidecar-hidden')) {
       if (sidecarMode === 'shell') {
         _ensureShellStarted();
@@ -296,8 +302,8 @@
 
   function _hideSidecar() {
     $sidecar.classList.add('sidecar-hidden');
-    $islandAi.classList.remove('active');
-    $islandShell.classList.remove('active');
+    $rsidebarAi?.classList.remove('active');
+    $rsidebarShell?.classList.remove('active');
   }
 
   function _toggleSidecar(mode = sidecarMode) {
@@ -312,15 +318,22 @@
     _hideSidecar();
   }
 
-  async function _sendShellCommand() {
+  function _sendShellCommand() {
     const text = $shellInput.value.trim();
     if (!text) return;
+
+    try {
+      window.TrustManager?.require('shell', 'execute');
+    } catch (err) {
+      _appendShellLine('stderr', '[trust] ' + (err.message || 'Permission denied for shell::execute'));
+      return;
+    }
 
     $shellInput.value = '';
     _appendShellLine('command', `› ${text}`);
 
     try {
-      const res = await _shell.command?.(text);
+      const res = _shell.command?.(text);
       if (!res?.ok) {
         _appendShellLine('stderr', res?.error || 'Command blocked');
       }
@@ -334,7 +347,7 @@
   function _endDrag() { dragState = null; }
 
   // ── Extensions Panel ─────────────────────────────────────
-  function _toggleExt() { $extPanel.classList.toggle('open'); $islandExt.classList.toggle('active', $extPanel.classList.contains('open')); }
+  function _toggleExt() { $extPanel.classList.toggle('open'); $rsidebarExt?.classList.toggle('active', $extPanel.classList.contains('open')); }
 
   async function _loadExts() {
     try {
@@ -659,6 +672,8 @@
   // ── Keyboard ─────────────────────────────────────────────
   function _setupKeys() {
     document.addEventListener('keydown', (e) => {
+      // F12 — toggle DevTools
+      if (e.key === 'F12') { e.preventDefault(); window.electronAPI?.window?.devtools?.(); return; }
       const c = e.ctrlKey || e.metaKey;
       if (c && e.key === 'l') { e.preventDefault(); _showAddr(); }
       else if (c && e.key === 't') { e.preventDefault(); _tabs.create('about:blank'); }
@@ -668,82 +683,253 @@
       else if (c && e.shiftKey && e.key === 'A') { e.preventDefault(); _toggleSidecar('ai'); }
       else if (c && e.key === 'b') { e.preventDefault(); _toggleSidebar(); }
       else if (c && e.key === 'Tab') { e.preventDefault(); window.PaperTM?.cycleTab(e.shiftKey ? -1 : 1); }
+      // Ctrl+Shift+M — cycle feature-platform modes
+      else if (c && e.shiftKey && e.key === 'M') {
+        e.preventDefault();
+        const modes = window.ModeManager?.MODES;
+        if (!modes) return;
+        const all = Object.values(modes);
+        const cur = window.ModeManager?.get();
+        const idx = all.indexOf(cur);
+        window.ModeManager?.set(all[(idx + 1) % all.length]);
+      }
+      // Ctrl+Shift+E — toggle edit mode
+      else if (c && e.shiftKey && e.key === 'E') {
+        e.preventDefault();
+        _toggleEditMode();
+      }
+      // Ctrl+Shift+I — toggle inspect mode
+      else if (c && e.shiftKey && e.key === 'I') {
+        e.preventDefault();
+        _toggleInspectMode();
+      }
+      // Ctrl+Shift+K — toggle action mode
+      else if (c && e.shiftKey && e.key === 'K') {
+        e.preventDefault();
+        _toggleActionMode();
+      }
+      // Ctrl+Shift+R — toggle workflow mode
+      else if (c && e.shiftKey && e.key === 'R') {
+        e.preventDefault();
+        _toggleWorkflowMode();
+      }
+      // Ctrl+Shift+D — toggle data mode
+      else if (c && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        _toggleDataMode();
+      }
+      // Ctrl+Shift+S — toggle sidecar shell
+      else if (c && e.shiftKey && e.key === 'S') {
+        e.preventDefault();
+        _toggleSidecar('shell');
+      }
+      // Ctrl+Shift+X — open bash canvas page
+      else if (c && e.shiftKey && e.key === 'X') {
+        e.preventDefault();
+        window.CanvasPages?.open('bash');
+      }
+      // Ctrl+Shift+H — open history canvas page
+      else if (c && e.shiftKey && e.key === 'H') {
+        e.preventDefault();
+        window.CanvasPages?.open('history');
+      }
+      // Ctrl+Shift+B — open bookmarks canvas page
+      else if (c && e.shiftKey && e.key === 'B') {
+        e.preventDefault();
+        window.CanvasPages?.open('bookmarks');
+      }
+      // Ctrl+Shift+G — open agents canvas page
+      else if (c && e.shiftKey && e.key === 'G') {
+        e.preventDefault();
+        window.CanvasPages?.open('agents');
+      }
+      // Ctrl+Shift+J — open activity canvas page
+      else if (c && e.shiftKey && e.key === 'J') {
+        e.preventDefault();
+        window.CanvasPages?.open('activity');
+      }
     });
+  }
+
+  // ── Data Mode ─────────────────────────────────────────
+  function _toggleDataMode() {
+    if (window.DataPipeline?.isEnabled()) {
+      window.DataPipeline.disable();
+    } else {
+      const root = $newTabPage?.classList.contains('hidden') ? $app : $newTabPage;
+      window.DataPipeline?.enable(root);
+    }
+  }
+
+  // ── Miniapps ───────────────────────────────────────────
+  function _toggleMiniapps() {
+    const list = window.Miniapps?.getList?.() || [];
+    if (list.length > 0) {
+      // Open first miniapp as launcher
+      window.Miniapps.open(list[0].id);
+      // Sync with ModeManager
+      if (window.ModeManager) {
+        window.ModeManager.set('browse');
+      }
+      // Show active indicator
+      $rsidebarMiniapps?.classList.add('active');
+    }
+  }
+
+  // ── Workflow Mode ─────────────────────────────────────
+  function _toggleWorkflowMode() {
+    if (window.WorkflowEngine?.isEnabled()) {
+      window.WorkflowEngine.disable();
+    } else {
+      const root = $newTabPage?.classList.contains('hidden') ? $app : $newTabPage;
+      window.WorkflowEngine?.enable(root);
+    }
+  }
+
+  // ── Action Mode ───────────────────────────────────────
+  function _toggleActionMode() {
+    if (window.ActionRegistry?.isEnabled()) {
+      window.ActionRegistry.disable();
+    } else {
+      const root = $newTabPage?.classList.contains('hidden') ? $app : $newTabPage;
+      window.ActionRegistry?.enable(root);
+    }
+  }
+
+  // ── Inspect Mode ───────────────────────────────────────
+  function _toggleInspectMode() {
+    if (window.Inspector?.isEnabled()) {
+      window.Inspector.disable();
+    } else {
+      const root = $newTabPage?.classList.contains('hidden') ? $app : $newTabPage;
+      window.Inspector?.enable(root);
+    }
+  }
+
+  // ── Edit Mode ───────────────────────────────────────────
+  function _toggleEditMode() {
+    if (window.EditorEngine?.isEnabled()) {
+      window.EditorEngine.disable();
+    } else {
+      // Enable on the content area (not sidebar)
+      const root = $newTabPage?.classList.contains('hidden') ? $app : $newTabPage;
+      window.EditorEngine?.enable(root);
+    }
+  }
+
+  // ── Mode change toast ──────────────────────────────────
+  function _showModeIndicator(mode) {
+    if (!mode || mode === 'browse') return;
+    _toast('Mode: ' + mode, 1200);
   }
 
   // ── Boot ────────────────────────────────────────────────
   async function init() {
-    $winMin.addEventListener('click', () => _win.minimize?.());
-    $winMax.addEventListener('click', () => _win.maximize?.());
-    $winClose.addEventListener('click', () => _win.close?.());
-    $sidebarToggle.addEventListener('click', _toggleSidebar);
-    $newTabBtn.addEventListener('click', () => _tabs.create('about:blank'));
-    window.PaperTM?.init({ tabList: $tabList, wvContainer: $wvContainer, addrInput: $addrInput, ntp: $newTabPage, storage: _storage, tabsIPC: _tabs, minimapContainer: $minimapContainer });
-    _tabs.onUpdated?.((d) => window.PaperTM?.onTabsUpdated(d));
-    window.electronAPI?.on?.('app:shortcut', (_event, action) => _handleShortcut(action));
-    _shell.onOutput?.((payload) => {
-      if (!payload) return;
-      _appendShellLine(payload.stream || 'stdout', payload.text || '');
-    });
-    _shell.onStatus?.((state) => {
-      if (!state) return;
-      shellState = { ...shellState, ...state };
-      _renderShellState();
-    });
-    _shell.onClear?.(() => _clearShellOutput());
+    try { $winMin?.addEventListener('click', () => _win.minimize?.()); } catch (e) { console.warn('[init] winMin:', e.message); }
+    try { $winMax?.addEventListener('click', () => _win.maximize?.()); } catch (e) { console.warn('[init] winMax:', e.message); }
+    try { $winClose?.addEventListener('click', () => _win.close?.()); } catch (e) { console.warn('[init] winClose:', e.message); }
+    try { $sidebarToggle?.addEventListener('click', _toggleSidebar); } catch (e) { console.warn('[init] sidebarToggle:', e.message); }
+    // Right sidebar toggle
+    try { document.getElementById('right-sidebar-toggle')?.addEventListener('click', () => window.RightSidebar?.toggleSidebar()); } catch (e) { console.warn('[init] rightSidebarToggle:', e.message); }
+    try { $newTabBtn?.addEventListener('click', () => _tabs.create('about:blank')); } catch (e) { console.warn('[init] newTabBtn:', e.message); }
+    try {
+      window.PaperTM?.init({ tabList: $tabList, wvContainer: $wvContainer, addrInput: $addrInput, ntp: $newTabPage, storage: _storage, tabsIPC: _tabs, minimapContainer: $minimapContainer });
+      _tabs.onUpdated?.((d) => window.PaperTM?.onTabsUpdated(d));
+    } catch (e) { console.warn('[init] PaperTM:', e.message); }
+    try {
+      window.electronAPI?.on?.('app:shortcut', (_event, action) => _handleShortcut(action));
+      _shell.onOutput?.((payload) => {
+        if (!payload) return;
+        _appendShellLine(payload.stream || 'stdout', payload.text || '');
+      });
+      _shell.onStatus?.((state) => {
+        if (!state) return;
+        shellState = { ...shellState, ...state };
+        _renderShellState();
+      });
+      _shell.onClear?.(() => _clearShellOutput());
+    } catch (e) { console.warn('[init] IPC/shell:', e.message); }
 
-    $sidecarModeAi?.addEventListener('click', () => _setShellMode('ai'));
-    $sidecarModeShell?.addEventListener('click', () => _setShellMode('shell'));
-    $islandAi.addEventListener('click', () => _toggleSidecar('ai'));
-    $islandShell.addEventListener('click', () => _toggleSidecar('shell'));
-    $shellRun?.addEventListener('click', _sendShellCommand);
-    $shellClear?.addEventListener('click', () => _shell.clear?.());
-    $shellStop?.addEventListener('click', async () => {
-      if (shellState.running) {
-        await _shell.stop?.();
-      } else {
-        await _ensureShellStarted();
-      }
-    });
-    $shellInput?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        _sendShellCommand();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        _hideSidecar();
-      }
-    });
+    try {
+      $sidecarModeAi?.addEventListener('click', () => _setShellMode('ai'));
+      $sidecarModeShell?.addEventListener('click', () => _setShellMode('shell'));
+    } catch (e) { console.warn('[init] sidecar modes:', e.message); }
 
-    $addrInput.addEventListener('input', () => { addrActiveIdx = -1; _buildSuggestions($addrInput.value); });
-    $addrInput.addEventListener('focus', () => { if ($addrInput.value) _buildSuggestions($addrInput.value); });
-    $addrInput.addEventListener('blur', () => setTimeout(() => { if (!$addrDD.contains(document.activeElement)) _hideSuggestions(); }, 150));
-    $addrInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); _nav($addrInput.value); }
-      else if (e.key === 'Escape') { e.preventDefault(); _hideAddr(); }
-      else if (e.key === 'ArrowDown') { e.preventDefault(); addrActiveIdx = Math.min(addrActiveIdx + 1, suggestions.length - 1); _renderSuggestions(); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); addrActiveIdx = Math.max(addrActiveIdx - 1, -1); _renderSuggestions(); }
-      else if (e.key === 'Tab' && suggestions.length) { e.preventDefault(); $addrInput.value = suggestions[0].url; _hideSuggestions(); }
-    });
+    // Right sidebar buttons — all use ?. in case elements are missing
+    try {
+      const _btns = [
+        [$rsidebarAi, 'ai', () => _toggleSidecar('ai')],
+        [$rsidebarShell, 'shell', () => _toggleSidecar('shell')],
+        [$rsidebarEdit, 'edit', () => _toggleEditMode()],
+        [$rsidebarInspect, 'inspect', () => _toggleInspectMode()],
+        [$rsidebarActions, 'actions', () => _toggleActionMode()],
+        [$rsidebarData, 'data', () => _toggleDataMode()],
+        [$rsidebarWorkflows, 'workflows', () => _toggleWorkflowMode()],
+        [$rsidebarMiniapps, 'miniapps', () => _toggleMiniapps()],
+      ];
+      let attached = 0;
+      _btns.forEach(([el, name, fn]) => {
+        if (el) { el.addEventListener('click', fn); attached++; }
+        else console.warn('[init] MISSING button:', name);
+      });
+      console.log('[init] rsidebar buttons attached:', attached + '/8');
+    } catch (e) { console.error('[init] RIGHT SIDEBAR BUTTONS FAILED:', e.message); }
+    try {
+      $shellRun?.addEventListener('click', _sendShellCommand);
+      $shellClear?.addEventListener('click', () => _shell.clear?.());
+      $shellStop?.addEventListener('click', async () => {
+        if (shellState.running) {
+          await _shell.stop?.();
+        } else {
+          await _ensureShellStarted();
+        }
+      });
+      $shellInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          _sendShellCommand();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          _hideSidecar();
+        }
+      });
+    } catch (e) { console.warn('[init] shell controls:', e.message); }
 
-    $newTabInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); _nav($newTabInput.value); } });
-    document.querySelectorAll('.new-tab-link').forEach(l => l.addEventListener('click', (e) => { e.preventDefault(); if (l.dataset.url) _nav(l.dataset.url); }));
+    try {
+      $addrInput?.addEventListener('input', () => { addrActiveIdx = -1; _buildSuggestions($addrInput.value); });
+      $addrInput?.addEventListener('focus', () => { if ($addrInput.value) _buildSuggestions($addrInput.value); });
+      $addrInput?.addEventListener('blur', () => setTimeout(() => { if (!$addrDD?.contains(document.activeElement)) _hideSuggestions(); }, 150));
+      $addrInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); _nav($addrInput.value); }
+        else if (e.key === 'Escape') { e.preventDefault(); _hideAddr(); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); addrActiveIdx = Math.min(addrActiveIdx + 1, suggestions.length - 1); _renderSuggestions(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); addrActiveIdx = Math.max(addrActiveIdx - 1, -1); _renderSuggestions(); }
+        else if (e.key === 'Tab' && suggestions.length) { e.preventDefault(); $addrInput.value = suggestions[0].url; _hideSuggestions(); }
+      });
+    } catch (e) { console.warn('[init] address bar:', e.message); }
 
-    $islandOmnibar.addEventListener('click', _showAddr);
-    $islandExt.addEventListener('click', _toggleExt);
-    $sidecarHdr.addEventListener('mousedown', _startDrag);
-    document.addEventListener('mousemove', _onDrag);
-    document.addEventListener('mouseup', _endDrag);
-    $sidecarConfig.addEventListener('click', _openAiConfig);
-    $sidecarClose.addEventListener('click', _hideSidecar);
-    $chatSend.addEventListener('click', _sendChat);
-    $chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendChat(); } });
-    $chatInput.addEventListener('input', () => { $chatInput.style.height = 'auto'; $chatInput.style.height = Math.min($chatInput.scrollHeight, 100) + 'px'; });
-    $extPanelClose.addEventListener('click', _toggleExt);
-    $sidebarHistoryBtn.addEventListener('click', _toggleHistory);
-    $sidebarSettingsBtn.addEventListener('click', _toggleSettings);
+    try {
+      $newTabInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); _nav($newTabInput.value); } });
+      document.querySelectorAll('.new-tab-link').forEach(l => l.addEventListener('click', (e) => { e.preventDefault(); if (l.dataset.url) _nav(l.dataset.url); }));
+    } catch (e) { console.warn('[init] new tab:', e.message); }
+
+    try {
+      $rsidebarOmnibar?.addEventListener('click', _showAddr);
+      $rsidebarExt?.addEventListener('click', _toggleExt);
+      $sidecarHdr?.addEventListener('mousedown', _startDrag);
+      document.addEventListener('mousemove', _onDrag);
+      document.addEventListener('mouseup', _endDrag);
+      $sidecarConfig?.addEventListener('click', _openAiConfig);
+      $sidecarClose?.addEventListener('click', _hideSidecar);
+      $chatSend?.addEventListener('click', _sendChat);
+      $chatInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendChat(); } });
+      $chatInput?.addEventListener('input', () => { $chatInput.style.height = 'auto'; $chatInput.style.height = Math.min($chatInput.scrollHeight, 100) + 'px'; });
+      $extPanelClose?.addEventListener('click', _toggleExt);
+      $sidebarHistoryBtn?.addEventListener('click', _toggleHistory);
+      $sidebarSettingsBtn?.addEventListener('click', _toggleSettings);
+    } catch (e) { console.warn('[init] misc listeners:', e.message); }
     // Bookmark wiring
-    $islandBookmark?.addEventListener('click', async () => {
+    $rsidebarBookmark?.addEventListener('click', async () => {
       const activeId = window.PaperTM?.getActiveTabId();
       if (!activeId) return;
       const wv = window.PaperTM?.getWebview(activeId);
@@ -775,6 +961,98 @@
     $changelogOverlay?.addEventListener('click', (e) => { if (e.target === $changelogOverlay) _dismissChangelog(); });
 
     _setupKeys();
+
+    // Feature platform: modes + trust bootstrap
+    try {
+      window.ModeManager?.init?.();
+      window.TrustManager?.registerDefaults?.([
+        { module: 'shell', action: 'execute' },
+        { module: 'editor', action: 'write' },
+        { module: 'inspector', action: 'inspectDom' },
+        { module: 'actions', action: 'execute' },
+        { module: 'data', action: 'scrape' },
+        { module: 'workflows', action: 'execute' },
+        { module: 'ai', action: 'complete' },
+      ]);
+      window.ModeManager?.onChange?.((detail) => {
+        if ($shellHint) $shellHint.textContent = 'Mode: ' + detail.to;
+        _showModeIndicator(detail.to);
+      });
+      window.TrustManager?.onRequest?.((type, detail) => {
+        if (type === 'request') {
+          detail.reject(new Error('not granted'));
+        }
+      });
+    } catch (e) { console.warn('[init] mode/trust:', e.message); }
+
+    // Editor engine: init + ModeManager sync
+    try {
+      window.EditorEngine?.init?.({ root: $app });
+      window.EditorEngine?.onChange?.((type) => {
+        if (type === 'enabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.EDIT);
+        } else if (type === 'disabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+        }
+      });
+    } catch (e) { console.warn('[init] EditorEngine:', e.message); }
+
+    // Inspector: init + ModeManager sync
+    try {
+      window.Inspector?.init?.({ root: $app });
+      window.Inspector?.onChange?.((type) => {
+        if (type === 'enabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.INSPECT);
+        } else if (type === 'disabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+        }
+      });
+    } catch (e) { console.warn('[init] Inspector:', e.message); }
+
+    // ActionRegistry: init + ModeManager sync
+    try {
+      window.ActionRegistry?.init?.({ root: $app });
+      window.ActionRegistry?.onChange?.((type) => {
+        if (type === 'enabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.ACTION);
+        } else if (type === 'disabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+        }
+      });
+    } catch (e) { console.warn('[init] ActionRegistry:', e.message); }
+
+    // WorkflowEngine: init + ModeManager sync
+    try {
+      window.WorkflowEngine?.init?.({ root: $app });
+      window.WorkflowEngine?.onChange?.((type) => {
+        if (type === 'enabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.RUN);
+        } else if (type === 'disabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+        }
+      });
+    } catch (e) { console.warn('[init] WorkflowEngine:', e.message); }
+
+    // DataPipeline: init + ModeManager sync
+    try {
+      window.DataPipeline?.init?.({ root: $app });
+      window.DataPipeline?.onChange?.((type) => {
+        if (type === 'enabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.RESULT);
+        } else if (type === 'disabled') {
+          window.ModeManager?.set(window.ModeManager.MODES.BROWSE);
+        }
+      });
+    } catch (e) { console.warn('[init] DataPipeline:', e.message); }
+
+    // AIClient: init
+    try { window.AIClient?.init?.({ root: $app }); } catch (e) { console.warn('[init] AIClient:', e.message); }
+
+    // Miniapps: init
+    try { window.Miniapps?.reset?.(); } catch (e) { console.warn('[init] Miniapps:', e.message); }
+
+    // Canvas pages: init
+    try { window.CanvasPages?.init?.(); } catch (e) { console.warn('[init] CanvasPages:', e.message); }
 
     _loadBookmarks(); _loadExts();
 

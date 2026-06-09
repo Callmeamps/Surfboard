@@ -8,6 +8,12 @@
     "dev": "electron . --no-sandbox --dev",
     "test": "jest --verbose"
   },
+  "jest": {
+    "setupFilesAfterEnv": [
+      "./test/setup-feature-platform.js"
+    ],
+    "testEnvironment": "jest-environment-jsdom"
+  },
   "keywords": [
     "electron",
     "browser",
@@ -16,7 +22,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "electron": "^33.0.0"
+    "electron": "^42.3.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
