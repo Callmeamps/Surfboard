@@ -221,6 +221,8 @@ describe('loadExtension', () => {
       enabled: true,
       path: '/fake/dir/my-ext',
       icon: '',
+      popupUrl: '',
+      optionsUrl: '',
     });
     expect(mockLoadExtension).toHaveBeenCalledWith('/fake/dir/my-ext', { allowFileAccess: false });
   });

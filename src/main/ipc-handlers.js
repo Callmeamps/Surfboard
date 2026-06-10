@@ -358,6 +358,23 @@ function register() {
     return { partition: profiles.getSessionPartition(id) };
   });
 
+  // ── Session persistence ─────────────────────────────────
+  ipcMain.handle('session:save', () => {
+    const sessionPersistence = require('./session-persistence');
+    return sessionPersistence.save(tabManager);
+  });
+
+  ipcMain.handle('session:load', () => {
+    const sessionPersistence = require('./session-persistence');
+    return sessionPersistence.load();
+  });
+
+  ipcMain.handle('session:clear', () => {
+    const sessionPersistence = require('./session-persistence');
+    profiles.clearProfileSession();
+    return true;
+  });
+
   // ── Changelog ──────────────────────────────────────────
   ipcMain.handle('changelog:get', () => {
     return storage.getChangelogData();

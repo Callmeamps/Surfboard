@@ -6,6 +6,7 @@ const groups = new Map();
 let activeTabId = null;
 let idCounter = 0;
 let groupIdCounter = 0;
+let _postUpdateHook = null;
 
 function generateId() {
   return `tab-${++idCounter}-${Date.now().toString(36)}`;
@@ -22,6 +23,7 @@ function broadcastUpdate() {
       win.webContents.send('tabs:updated', all);
     }
   }
+  if (_postUpdateHook) _postUpdateHook();
 }
 
 function create(url = 'about:blank') {
@@ -197,6 +199,10 @@ function getGroups() {
   return [...groups.values()].map(g => ({ ...g }));
 }
 
+function setPostUpdateHook(fn) {
+  _postUpdateHook = fn;
+}
+
 module.exports = {
   create,
   close,
@@ -205,6 +211,7 @@ module.exports = {
   get,
   getAll,
   getActiveId,
+  setPostUpdateHook,
   createGroup,
   assignToGroup,
   removeFromGroup,

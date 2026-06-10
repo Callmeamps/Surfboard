@@ -298,6 +298,55 @@ describe('profiles', () => {
     });
   });
 
+  describe('session persistence', () => {
+    it('saves and loads session', () => {
+      profiles.init();
+      const session = {
+        tabs: [
+          { url: 'https://example.com', title: 'Example', favicon: '', active: true },
+          { url: 'https://github.com', title: 'GitHub', favicon: '🐙', active: false },
+        ],
+        activeTabId: 'tab-1',
+        windowBounds: { x: 100, y: 200, width: 1400, height: 900 },
+        savedAt: Date.now(),
+      };
+
+      profiles.saveProfileSession(session);
+      const loaded = profiles.loadProfileSession();
+
+      expect(loaded.tabs).toHaveLength(2);
+      expect(loaded.tabs[0].url).toBe('https://example.com');
+      expect(loaded.activeTabId).toBe('tab-1');
+      expect(loaded.windowBounds.width).toBe(1400);
+    });
+
+    it('returns null when no session saved', () => {
+      profiles.init();
+      expect(profiles.loadProfileSession()).toBeNull();
+    });
+
+    it('clears session', () => {
+      profiles.init();
+      profiles.saveProfileSession({ tabs: [{ url: 'x', title: '', favicon: '', active: true }], savedAt: Date.now() });
+      profiles.clearProfileSession();
+      expect(profiles.loadProfileSession()).toBeNull();
+    });
+
+    it('session is profile-scoped', () => {
+      profiles.init();
+      const p = profiles.createProfile({ name: 'Work' });
+
+      profiles.saveProfileSession({ tabs: [{ url: 'https://work.com', title: 'Work', favicon: '', active: true }], savedAt: Date.now() }, 'default');
+      profiles.saveProfileSession({ tabs: [{ url: 'https://personal.com', title: 'Personal', favicon: '', active: true }], savedAt: Date.now() }, p.id);
+
+      const def = profiles.loadProfileSession('default');
+      const work = profiles.loadProfileSession(p.id);
+
+      expect(def.tabs[0].url).toBe('https://work.com');
+      expect(work.tabs[0].url).toBe('https://personal.com');
+    });
+  });
+
   describe('default profile data migration', () => {
     it('migrates old storage.json to profile data', () => {
       // Write a fake old storage.json

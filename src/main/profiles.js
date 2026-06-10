@@ -360,6 +360,33 @@ function clearProfileTabOrder(profileId) {
   }
 }
 
+// ── Session persistence ───────────────────────────────
+
+function saveProfileSession(session, profileId) {
+  _ensureInit();
+  const pid = profileId || getCurrentProfileId();
+  const data = _readProfileData(pid) || { bookmarks: [], history: [], settings: {} };
+  data.session = session;
+  _writeProfileData(pid, data);
+}
+
+function loadProfileSession(profileId) {
+  _ensureInit();
+  const pid = profileId || getCurrentProfileId();
+  const data = _readProfileData(pid);
+  return data?.session || null;
+}
+
+function clearProfileSession(profileId) {
+  _ensureInit();
+  const pid = profileId || getCurrentProfileId();
+  const data = _readProfileData(pid);
+  if (data) {
+    delete data.session;
+    _writeProfileData(pid, data);
+  }
+}
+
 // ── Session partition ──────────────────────────────────
 
 function getSessionPartition(profileId) {
@@ -422,6 +449,11 @@ module.exports = {
   loadProfileTabOrder,
   saveProfileTabOrder,
   clearProfileTabOrder,
+
+  // Session persistence
+  saveProfileSession,
+  loadProfileSession,
+  clearProfileSession,
 
   // Session
   getSessionPartition,

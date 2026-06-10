@@ -4,6 +4,7 @@ const windowManager = require('./window-manager');
 const ipcHandlers = require('./ipc-handlers');
 const tabManager = require('./tab-manager');
 const profiles = require('./profiles');
+const sessionPersistence = require('./session-persistence');
 
 // ── Ad/tracker blocking (frustum culling for network) ─────
 const _adBlockPatterns = [
@@ -133,14 +134,36 @@ app.whenReady().then(async () => {
   profiles.init();
   ipcHandlers.register();
 
+  // Auto-save session on tab changes (debounced)
+  tabManager.setPostUpdateHook(() => sessionPersistence.scheduleSave(tabManager));
+
   // Set up content script injection early (before any BrowserWindow)
   const extensionLoader = require('./extension-loader');
   extensionLoader.initContentScriptInjection();
 
   await createWindow();
 
-  // Create an initial blank tab
-  tabManager.create('about:blank');
+  // Restore saved session or create a blank tab
+  const savedSession = sessionPersistence.load();
+  if (savedSession?.tabs?.length) {
+    // Restore window bounds first
+    const win = windowManager.getWindow();
+    if (win) sessionPersistence.applyWindowBounds(win, savedSession);
+
+    // Recreate tabs from saved session
+    let restoredActiveId = null;
+    for (const t of savedSession.tabs) {
+      const created = tabManager.create(t.url || 'about:blank');
+      if (t.title) tabManager.update(created.id, { title: t.title });
+      if (t.favicon) tabManager.update(created.id, { favicon: t.favicon });
+      if (t.active) restoredActiveId = created.id;
+    }
+    // Activate the saved active tab
+    if (restoredActiveId) tabManager.switch(restoredActiveId);
+    console.log(`[main] restored ${savedSession.tabs.length} tabs from session`);
+  } else {
+    tabManager.create('about:blank');
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -156,5 +179,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-  // Cleanup if needed
+  // Save session before quitting
+  sessionPersistence.save(tabManager);
+  sessionPersistence.cancelAutosave();
 });

@@ -124,6 +124,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     dismiss: () => ipcRenderer.invoke('changelog:dismiss'),
   },
 
+  // ── Session persistence ─────────────────────────────────
+  session: {
+    save: () => ipcRenderer.invoke('session:save'),
+    load: () => ipcRenderer.invoke('session:load'),
+    clear: () => ipcRenderer.invoke('session:clear'),
+  },
+
   // ── Generic helpers (used by sidebar.js) ─────────────
   on: (channel, callback) => {
     ipcRenderer.on(channel, callback);
