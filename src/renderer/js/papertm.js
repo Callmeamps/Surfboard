@@ -23,6 +23,48 @@
   let _saveTimeout = null;
   const _SAVE_DEBOUNCE_MS = 500;
   let _deps = null;
+  let _internalPagesEl = null;
+
+  // Internal pages URLs
+  const INTERNAL_URLS = {
+    'surfboard://settings': 'settings'
+  };
+
+  function _isInternalUrl(url) {
+    return url && url in INTERNAL_URLS;
+  }
+
+  function _showInternalPage(url) {
+    if (!_internalPagesEl) {
+      _internalPagesEl = document.getElementById('internal-pages');
+    }
+    if (!_internalPagesEl) return false;
+
+    const pageType = INTERNAL_URLS[url];
+    if (pageType === 'settings') {
+      _internalPagesEl.classList.remove('hidden');
+      window.SettingsPage?.render(
+        _internalPagesEl,
+        _deps?.settings,
+        _deps?.extensions,
+        _deps?.profiles,
+        _deps?.activeProfile,
+        {
+          updateSettings: _deps?.storage?.updateSettings,
+          clearHistory: _deps?.storage?.clearHistory,
+        }
+      );
+      return true;
+    }
+    return false;
+  }
+
+  function _hideInternalPage() {
+    if (_internalPagesEl) {
+      _internalPagesEl.classList.add('hidden');
+      _internalPagesEl.innerHTML = '';
+    }
+  }
 
   // ── Scroll-to-switch state ─────────────────────────────
   let _scrollAccum = 0;
@@ -51,6 +93,9 @@
   }
 
   function _ensureWebview(tabId, url) {
+    // Skip webview creation for internal pages
+    if (_isInternalUrl(url)) return null;
+
     if (_wvMap.has(tabId)) return _wvMap.get(tabId);
 
     const wv = document.createElement('webview');
@@ -128,9 +173,20 @@
   }
 
   function _showActiveWebview() {
+    const activeTab = _tabs.get(_activeTabId);
+    const isInternal = activeTab && _isInternalUrl(activeTab.url);
+
     _wvMap.forEach((wv, id) => {
-      wv.style.display = (id === _activeTabId) ? '' : 'none';
+      // Hide webview if it's not the active tab, or if we're showing an internal page
+      wv.style.display = (id === _activeTabId && !isInternal) ? '' : 'none';
     });
+
+    // Show/hide internal pages container
+    if (isInternal) {
+      _showInternalPage(activeTab.url);
+    } else {
+      _hideInternalPage();
+    }
   }
 
   function _buildGroupHeader(groupId) {
@@ -326,6 +382,7 @@
   }
 
   function _renderWebviews() {
+    // Remove webviews for closed tabs
     _wvMap.forEach((wv, id) => {
       if (!_tabs.has(id)) {
         try { wv.stop(); } catch {}
@@ -333,9 +390,14 @@
         _wvMap.delete(id);
       }
     });
+
+    // Create webviews for tabs (skip internal URLs)
     _tabs.forEach((tab) => {
-      _ensureWebview(tab.id, tab.url);
+      if (!_isInternalUrl(tab.url)) {
+        _ensureWebview(tab.id, tab.url);
+      }
     });
+
     _showActiveWebview();
   }
 
@@ -357,8 +419,13 @@
     const t = _tabs.get(_activeTabId);
     if (!t || t.url === 'about:blank') {
       _deps.ntp.classList.remove('hidden');
+      _hideInternalPage();
+    } else if (_isInternalUrl(t.url)) {
+      _deps.ntp.classList.add('hidden');
+      _showInternalPage(t.url);
     } else {
       _deps.ntp.classList.add('hidden');
+      _hideInternalPage();
     }
   }
 
@@ -450,6 +517,7 @@
     init(deps) {
       _deps = deps;
       _minimapContainer = deps.minimapContainer;
+      _internalPagesEl = document.getElementById('internal-pages');
       _attachDragListeners();
       // Scroll-to-switch: wheel on tab list
       _deps.tabList.addEventListener('wheel', _onWheelScroll, { passive: true });
@@ -529,6 +597,20 @@
     },
 
     navigate(text) {
+      // Handle internal URLs
+      if (_isInternalUrl(text)) {
+        const activeTab = _tabs.get(_activeTabId);
+        if (activeTab) {
+          // Update the tab URL and re-render
+          activeTab.url = text;
+          activeTab.title = 'Settings';
+          _deps.tabsIPC.update?.(_activeTabId, { url: text, title: 'Settings' });
+          _updateNTP();
+          _queueTabs();
+        }
+        return true;
+      }
+
       const wv = _wvMap.get(_activeTabId);
       if (wv) {
         // loadURL returns a Promise in Electron 33

@@ -550,7 +550,10 @@
 
   // ── Settings ─────────────────────────────────────────────
   // Delegated to settings.js module
-  function _toggleSettings() { window.SettingsModule.toggle(); }
+  function _toggleSettings() { 
+    // Open settings as a full tab
+    _tabs.create('surfboard://settings');
+  }
   function _openAiConfig() { window.SettingsModule.openAiConfig(); }
 
   // ── Chat ─────────────────────────────────────────────────
@@ -873,7 +876,7 @@
       });
     } catch (e) { console.warn('[init] nav buttons:', e.message); }
     try {
-      window.PaperTM?.init({ tabList: $tabList, wvContainer: $wvContainer, addrInput: $addrInput, ntp: $newTabPage, storage: _storage, tabsIPC: _tabs, minimapContainer: $minimapContainer });
+      window.PaperTM?.init({ tabList: $tabList, wvContainer: $wvContainer, addrInput: $addrInput, ntp: $newTabPage, storage: _storage, tabsIPC: _tabs, minimapContainer: $minimapContainer, settings, extensions: [], profiles: [], activeProfile: 'default' });
       _tabs.onUpdated?.((d) => window.PaperTM?.onTabsUpdated(d));
     } catch (e) { console.warn('[init] PaperTM:', e.message); }
     try {
@@ -1025,6 +1028,10 @@
       $sidebarHistoryBtn?.addEventListener('click', _toggleHistory);
       $sidebarSettingsBtn?.addEventListener('click', _toggleSettings);
     } catch (e) { console.warn('[init] misc listeners:', e.message); }
+    // Settings page changelog link
+    window.addEventListener('show-changelog', () => {
+      $changelogOverlay?.classList.remove('hidden');
+    });
     // Bookmark wiring
     $rsidebarBookmark?.addEventListener('click', async () => {
       const activeId = window.PaperTM?.getActiveTabId();
