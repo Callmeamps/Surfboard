@@ -4,8 +4,8 @@
   "description": "A riced Electron-based browser with vertical tabs, sidebar, and AI sidecar",
   "main": "app.js",
   "scripts": {
-    "start": "electron . --no-sandbox",
-    "dev": "electron . --no-sandbox --dev",
+    "start": "electron . --no-sandbox --enable-features=CanvasDrawElement",
+    "dev": "electron . --no-sandbox --dev --enable-features=CanvasDrawElement",
     "test": "jest --verbose"
   },
   "jest": {
