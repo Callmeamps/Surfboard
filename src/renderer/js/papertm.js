@@ -27,7 +27,11 @@
 
   // Internal pages URLs
   const INTERNAL_URLS = {
-    'surfboard://settings': 'settings'
+    'surfboard://settings': 'settings',
+    'surfboard://extensions': 'extensions',
+    'surfboard://agents': 'agents',
+    'surfboard://shell': 'shell',
+    'surfboard://workflows': 'workflows',
   };
 
   function _isInternalUrl(url) {
@@ -41,8 +45,11 @@
     if (!_internalPagesEl) return false;
 
     const pageType = INTERNAL_URLS[url];
+    if (!pageType) return false;
+
+    _internalPagesEl.classList.remove('hidden');
+
     if (pageType === 'settings') {
-      _internalPagesEl.classList.remove('hidden');
       window.SettingsPage?.render(
         _internalPagesEl,
         _deps?.settings,
@@ -56,6 +63,15 @@
       );
       return true;
     }
+
+    // Tab pages: extensions, agents, shell, workflows
+    if (['extensions', 'agents', 'shell', 'workflows'].includes(pageType)) {
+      window.TabPages?.render(_internalPagesEl, pageType, {
+        extensions: _deps?.extensions,
+      });
+      return true;
+    }
+
     return false;
   }
 

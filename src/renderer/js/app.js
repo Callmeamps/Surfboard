@@ -781,6 +781,23 @@
         e.preventDefault();
         window.CanvasPages?.open('activity');
       }
+      // Alt+Shift+letter — open full tab pages
+      else if (e.altKey && e.shiftKey && e.key === 'X') {
+        e.preventDefault();
+        _tabs.create('surfboard://extensions');
+      }
+      else if (e.altKey && e.shiftKey && e.key === 'G') {
+        e.preventDefault();
+        _tabs.create('surfboard://agents');
+      }
+      else if (e.altKey && e.shiftKey && e.key === 'L') {
+        e.preventDefault();
+        _tabs.create('surfboard://shell');
+      }
+      else if (e.altKey && e.shiftKey && e.key === 'F') {
+        e.preventDefault();
+        _tabs.create('surfboard://workflows');
+      }
     });
   }
 
