@@ -6,7 +6,30 @@
   "scripts": {
     "start": "electron . --no-sandbox --enable-features=CanvasDrawElement",
     "dev": "electron . --no-sandbox --dev --enable-features=CanvasDrawElement",
-    "test": "jest --verbose"
+    "test": "jest --verbose",
+    "build": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.surfboard.browser",
+    "productName": "Surfboard",
+    "files": [
+      "app.js",
+      "src/**/*",
+      "!test/**",
+      "!handoffs/**",
+      "!*.md"
+    ],
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Network"
+    },
+    "mac": {
+      "target": ["dmg"]
+    },
+    "win": {
+      "target": ["nsis"]
+    }
   },
   "jest": {
     "setupFilesAfterEnv": [
@@ -26,6 +49,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "electron-builder": "^26.0.0",
     "electron-reloader": "^1.2.3",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
