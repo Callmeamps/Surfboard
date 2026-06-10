@@ -1,12 +1,11 @@
 const path = require('path');
 const fs = require('fs');
 const { app } = require('electron');
+const profiles = require('./profiles');
 
 // ── Data file path ──────────────────────────────────────────
-// Stored in Electron's userData directory:
-//   Linux:   ~/.config/riced-chromium/storage.json
-//   macOS:   ~/Library/Application Support/riced-chromium/storage.json
-//   Windows: %APPDATA%\riced-chromium\storage.json
+// Now delegates to profile-scoped storage.
+// Legacy storage.json used for backward compat if profiles module not yet init.
 
 let _cache = null; // in-memory cache
 
@@ -189,105 +188,57 @@ function _write(data) {
 // ── Bookmarks ───────────────────────────────────────────────
 
 function getBookmarks() {
-  const data = _read();
-  return [...data.bookmarks];
+  return profiles.getProfileBookmarks();
 }
 
 function addBookmark(bookmark) {
-  const data = _read();
-  const id = bookmark.id || `bm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const newBm = {
-    id,
-    label: bookmark.label || bookmark.url || 'Untitled',
-    url: bookmark.url || '',
-    icon: bookmark.icon || '🔖',
-    folder: bookmark.folder || 'Bookmarks Bar',
-  };
-  data.bookmarks.push(newBm);
-  _write(data);
-  return newBm;
+  return profiles.addProfileBookmark(bookmark);
 }
 
 function removeBookmark(id) {
-  const data = _read();
-  const idx = data.bookmarks.findIndex(b => b.id === id);
-  if (idx !== -1) {
-    data.bookmarks.splice(idx, 1);
-    _write(data);
-    return true;
-  }
-  return false;
+  return profiles.removeProfileBookmark(id);
 }
 
 function updateBookmark(id, patch) {
-  const data = _read();
-  const bm = data.bookmarks.find(b => b.id === id);
-  if (!bm) return null;
-  Object.assign(bm, patch);
-  _write(data);
-  return { ...bm };
+  return profiles.updateProfileBookmark(id, patch);
 }
 
 // ── History ─────────────────────────────────────────────────
 
 function getHistory(limit = 50) {
-  const data = _read();
-  return data.history.slice(0, limit);
+  return profiles.getProfileHistory(limit);
 }
 
 function addHistoryEntry(entry) {
-  const data = _read();
-  // De-dup: remove existing entry for same URL
-  data.history = data.history.filter(h => h.url !== entry.url);
-  data.history.unshift({
-    url: entry.url,
-    title: entry.title || entry.url,
-    favicon: entry.favicon || '🌐',
-    time: entry.time || Date.now(),
-  });
-  // Cap at 500 entries
-  data.history = data.history.slice(0, 500);
-  _write(data);
-  return true;
+  return profiles.addProfileHistoryEntry(entry);
 }
 
 function clearHistory() {
-  const data = _read();
-  data.history = [];
-  _write(data);
+  profiles.clearProfileHistory();
 }
 
 // ── Settings ────────────────────────────────────────────────
 
 function getSettings() {
-  const data = _read();
-  return { ...data.settings };
+  return profiles.getProfileSettings();
 }
 
 function updateSettings(patch) {
-  const data = _read();
-  Object.assign(data.settings, patch);
-  _write(data);
-  return { ...data.settings };
+  return profiles.updateProfileSettings(patch);
 }
 
 // ── Tab Order ─────────────────────────────────────────────
 
 function loadTabOrder() {
-  const data = _read();
-  return Promise.resolve(data.tabOrder ? [...data.tabOrder] : null);
+  return Promise.resolve(profiles.loadProfileTabOrder());
 }
 
 function saveTabOrder(order) {
-  const data = _read();
-  data.tabOrder = [...order];
-  _write(data);
+  profiles.saveProfileTabOrder(order);
 }
 
 function clearTabOrder() {
-  const data = _read();
-  delete data.tabOrder;
-  _write(data);
+  profiles.clearProfileTabOrder();
 }
 
 // ── Module exports ──────────────────────────────────────────

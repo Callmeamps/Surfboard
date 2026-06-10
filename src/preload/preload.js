@@ -61,6 +61,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
   },
 
+  // ── Profiles ─────────────────────────────────────────────
+  profiles: {
+    list: () => ipcRenderer.invoke('profiles:list'),
+    get: (id) => ipcRenderer.invoke('profiles:get', id),
+    current: () => ipcRenderer.invoke('profiles:current'),
+    create: (opts) => ipcRenderer.invoke('profiles:create', opts),
+    update: (id, patch) => ipcRenderer.invoke('profiles:update', id, patch),
+    delete: (id) => ipcRenderer.invoke('profiles:delete', id),
+    switch: (id) => ipcRenderer.invoke('profiles:switch', id),
+    sessionPartition: (id) => ipcRenderer.invoke('profiles:session-partition', id),
+    onChanged: (callback) => {
+      const listener = (_e, profile) => callback(profile);
+      ipcRenderer.on('profiles:changed', listener);
+      return () => ipcRenderer.removeListener('profiles:changed', listener);
+    },
+  },
+
   // ── Storage (bookmarks, history, settings) ──────────
   storage: {
     getBookmarks: () => ipcRenderer.invoke('storage:bookmarks:get'),

@@ -3,6 +3,7 @@ const { app, BrowserWindow, session } = require('electron');
 const windowManager = require('./window-manager');
 const ipcHandlers = require('./ipc-handlers');
 const tabManager = require('./tab-manager');
+const profiles = require('./profiles');
 
 // ── Ad/tracker blocking (frustum culling for network) ─────
 const _adBlockPatterns = [
@@ -129,6 +130,7 @@ function installAdBlocker() {
 // ── App lifecycle ───────────────────────────────────────
 app.whenReady().then(async () => {
   installAdBlocker();
+  profiles.init();
   ipcHandlers.register();
   await createWindow();
 

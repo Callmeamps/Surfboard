@@ -2,6 +2,7 @@ const { app, ipcMain, webContents, BrowserWindow } = require('electron');
 const tabManager = require('./tab-manager');
 const windowManager = require('./window-manager');
 const storage = require('./storage');
+const profiles = require('./profiles');
 const tabLifecycle = require('./tab-lifecycle');
 const { createBrowserShellManager } = require('./browser-shell');
 
@@ -300,6 +301,44 @@ function register() {
 
   ipcMain.handle('window:isMaximized', () => {
     return windowManager.isMaximized();
+  });
+
+  // ── Profiles ────────────────────────────────────────────
+  ipcMain.handle('profiles:list', () => {
+    return profiles.listProfiles();
+  });
+
+  ipcMain.handle('profiles:get', (_event, id) => {
+    return profiles.getProfile(id);
+  });
+
+  ipcMain.handle('profiles:current', () => {
+    return profiles.getCurrentProfile();
+  });
+
+  ipcMain.handle('profiles:create', (_event, opts) => {
+    return profiles.createProfile(opts);
+  });
+
+  ipcMain.handle('profiles:update', (_event, id, patch) => {
+    return profiles.updateProfile(id, patch);
+  });
+
+  ipcMain.handle('profiles:delete', (_event, id) => {
+    return profiles.deleteProfile(id);
+  });
+
+  ipcMain.handle('profiles:switch', (_event, id) => {
+    const result = profiles.switchProfile(id);
+    if (result) {
+      // Broadcast profile change to all windows
+      broadcastToWindows('profiles:changed', result);
+    }
+    return result;
+  });
+
+  ipcMain.handle('profiles:session-partition', (_event, id) => {
+    return { partition: profiles.getSessionPartition(id) };
   });
 
   // ── Changelog ──────────────────────────────────────────

@@ -59,6 +59,7 @@
   const $winClose      = document.getElementById('window-close');
   const $sidebarHistoryBtn  = document.getElementById('sidebar-history-btn');
   const $sidebarSettingsBtn = document.getElementById('sidebar-settings-btn');
+  const $sidebarProfileBtn  = document.getElementById('sidebar-profile-btn');
 
   const $bmAddBtn           = document.getElementById('bookmarks-add-btn');
   const $bmImportBtn        = document.getElementById('bookmarks-import-btn');
@@ -955,6 +956,9 @@
     $bmDialogLabel?.addEventListener('keydown', (e) => { if (e.key === 'Enter') $bmDialogUrl.focus(); });
     $bmDialogUrl?.addEventListener('keydown', (e) => { if (e.key === 'Enter') _saveBmDialog(); });
 
+    // Profile button
+    try { $sidebarProfileBtn?.addEventListener('click', () => window.ProfilesModule?.toggleSettingsPanel()); } catch (e) { console.warn('[init] profileBtn:', e.message); }
+
     // Changelog wiring
     $changelogClose?.addEventListener('click', _dismissChangelog);
     $changelogDismiss?.addEventListener('click', _dismissChangelog);
@@ -1050,6 +1054,20 @@
 
     // Miniapps: init
     try { window.Miniapps?.reset?.(); } catch (e) { console.warn('[init] Miniapps:', e.message); }
+
+    // Profiles: init
+    try {
+      window.ProfilesModule?.init?.({
+        ipc: window.electronAPI,
+        toast: _toast,
+        reload: async () => {
+          _loadBookmarks();
+          _loadExts();
+          try { settings = await _storage.getSettings?.() || {}; } catch {}
+          window.SettingsModule?.updateSettings?.(settings);
+        },
+      });
+    } catch (e) { console.warn('[init] Profiles:', e.message); }
 
     // Canvas pages: init
     try { window.CanvasPages?.init?.(); } catch (e) { console.warn('[init] CanvasPages:', e.message); }

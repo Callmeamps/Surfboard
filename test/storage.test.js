@@ -6,38 +6,34 @@
 const path = require('path');
 const fs = require('fs');
 
-// Use a temp file for test data
-const TEST_STORAGE = path.join(__dirname, '..', '.test-storage.json');
+jest.mock('electron', () => ({
+  app: { getPath: () => __dirname },
+}));
 
-jest.mock('electron', () => {
-  const { app } = { app: { getPath: () => __dirname } };
-  return { app: { getPath: () => __dirname } };
-});
-
-// Override the data path before requiring storage
 const storage = require('../src/main/storage');
 
-// Point storage at test file
-const origDataPath = storage._dataPath;
-// Monkey-patch: storage uses internal _dataPath via closure, so we test via public API
-// Since we can't easily override, we test the public API behavior instead.
-
 beforeAll(() => {
-  // Clean up test file if exists
-  try { fs.unlinkSync(TEST_STORAGE); } catch {}
+  // Clean up any leftover data files from other test suites
+  try {
+    const files = fs.readdirSync(__dirname);
+    files.forEach(f => {
+      if (f === 'profiles.json' || f === 'storage.json' ||
+          (f.startsWith('profile-') && f.endsWith('.json'))) {
+        try { fs.unlinkSync(path.join(__dirname, f)); } catch {}
+      }
+    });
+  } catch {}
 });
 
 // Since storage.js uses app.getPath('userData') and we mocked it to __dirname,
 // the storage file will be at __dirname/storage.json — that's fine for testing.
 
 describe('storage bookmarks', () => {
-  test('getBookmarks returns seeded defaults on first read', () => {
+  test('getBookmarks returns empty array for fresh profile', () => {
     const bms = storage.getBookmarks();
     expect(Array.isArray(bms)).toBe(true);
-    expect(bms.length).toBeGreaterThan(0);
-    expect(bms[0]).toHaveProperty('id');
-    expect(bms[0]).toHaveProperty('url');
-    expect(bms[0]).toHaveProperty('label');
+    // Profiles start with empty bookmarks
+    expect(bms.length).toBe(0);
   });
 
   test('addBookmark creates a new bookmark', () => {
