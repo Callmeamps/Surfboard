@@ -1,12 +1,110 @@
 /**
  * Miniapps Host — register, launch, and manage sandboxed miniapps
+ *
+ * Security model:
+ *  - Built-in miniapps (calculator, notes, todo) render inline — trusted code.
+ *  - Third-party miniapps with `sandbox: true` render in an iframe with
+ *    sandbox="allow-scripts" and a strict CSP via srcdoc. They communicate
+ *    with the host via postMessage.
+ *  - All user-supplied text is set via textContent, never innerHTML, to
+ *    prevent XSS.
  */
 (function () {
   'use strict';
 
   const _apps = {};
   let _activeId = null;
+  let _sandboxFrame = null;
+  let _sandboxReady = false;
+  let _sandboxReadyCallbacks = [];
 
+  // ── Sandbox iframe template ──────────────────────────────
+  // The sandboxed frame runs with:
+  //   allow-scripts — miniapp JS must execute
+  //   allow-same-origin — NOT set, so the iframe gets a unique opaque origin
+  //   This means: no cookies, no localStorage, no DOM access to parent,
+  //   no fetch to parent origin. Only postMessage works.
+  const _SANDBOX_CSP = [
+    "default-src 'none'",
+    "script-src 'unsafe-inline'",
+    "style-src 'unsafe-inline'",
+    "connect-src 'none'",
+    "img-src data:",
+    "font-src 'none'",
+    "object-src 'none'",
+    "frame-src 'none'",
+  ].join('; ');
+
+  function _buildSandboxSrcdoc(appId, appHtml, appCss) {
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Security-Policy" content="${_SANDBOX_CSP}">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; font-size: 13px; color: #ccc; background: transparent; padding: 8px; }
+  ${appCss || ''}
+</style>
+</head>
+<body>
+${appHtml}
+<script>
+(function() {
+  // Expose a minimal API to the miniapp
+  window.MiniappSDK = {
+    postMessage: function(type, data) {
+      parent.postMessage({ appId: '${appId}', type: type, data: data }, '*');
+    },
+    onMessage: null
+  };
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.appId === '${appId}' && MiniappSDK.onMessage) {
+      MiniappSDK.onMessage(e.data.type, e.data.data);
+    }
+  });
+
+  // Signal ready
+  parent.postMessage({ appId: '${appId}', type: '__ready' }, '*');
+})();
+</script>
+</body>
+</html>`;
+  }
+
+  // ── Sandbox bridge ───────────────────────────────────────
+  function _onSandboxMessage(e) {
+    const msg = e.data;
+    if (!msg || !msg.appId) return;
+
+    if (msg.type === '__ready') {
+      _sandboxReady = true;
+      _sandboxReadyCallbacks.forEach(fn => fn());
+      _sandboxReadyCallbacks = [];
+      return;
+    }
+
+    // Forward to registered message handlers
+    const app = _apps[msg.appId];
+    if (app && app.onMessage) {
+      app.onMessage(msg.type, msg.data);
+    }
+  }
+
+  function _sendToSandbox(appId, type, data) {
+    if (_sandboxFrame && _sandboxFrame.contentWindow) {
+      _sandboxFrame.contentWindow.postMessage({ appId, type, data }, '*');
+    }
+  }
+
+  function _waitForSandboxReady() {
+    return new Promise(resolve => {
+      if (_sandboxReady) { resolve(); return; }
+      _sandboxReadyCallbacks.push(resolve);
+    });
+  }
+
+  // ── Core API ─────────────────────────────────────────────
   function register(app) {
     if (!app || !app.id) return;
     _apps[app.id] = { ...app };
@@ -17,11 +115,18 @@
     if (!app) return;
     _activeId = id;
 
-    // Build miniapp content for popup panel
+    if (app.sandbox) {
+      _openSandboxed(app);
+    } else {
+      _openInline(app);
+    }
+  }
+
+  function _openInline(app) {
     const title = app.name;
     const content = `<div class="miniapp-frame">`
       + `<div class="miniapp-header">`
-      + `<span class="miniapp-icon">${app.icon || '🧩'}</span>`
+      + `<span class="miniapp-icon">${_esc(app.icon || '🧩')}</span>`
       + `<span class="miniapp-name">${_esc(app.name)}</span>`
       + `</div>`
       + `<div class="miniapp-body">`
@@ -32,10 +137,48 @@
     window.RightSidebar?.openPanel('miniapps', title);
     const panelContent = document.getElementById('popup-panel-content');
     if (panelContent) panelContent.innerHTML = content;
-    _wireRenderedMiniapp(id);
+    _wireRenderedMiniapp(app.id);
+  }
+
+  function _openSandboxed(app) {
+    const title = app.name;
+    const appHtml = app.render ? app.render() : `<p style="color:var(--text-faint)">Miniapp loaded</p>`;
+    const appCss = app.css || '';
+
+    window.RightSidebar?.openPanel('miniapps', title);
+    const panelContent = document.getElementById('popup-panel-content');
+    if (!panelContent) return;
+
+    panelContent.innerHTML = `<div class="miniapp-frame miniapp-sandboxed">`
+      + `<div class="miniapp-header">`
+      + `<span class="miniapp-icon">${_esc(app.icon || '🧩')}</span>`
+      + `<span class="miniapp-name">${_esc(app.name)}</span>`
+      + `</div>`
+      + `<div class="miniapp-body">`
+      + `<iframe id="miniapp-sandbox-frame" class="miniapp-iframe"`
+      + ` sandbox="allow-scripts"`
+      + ` style="width:100%;height:100%;border:none;background:transparent;"></iframe>`
+      + `</div></div>`;
+
+    _sandboxReady = false;
+    _sandboxFrame = document.getElementById('miniapp-sandbox-frame');
+    if (!_sandboxFrame) return;
+
+    _sandboxFrame.srcdoc = _buildSandboxSrcdoc(app.id, appHtml, appCss);
+    _sandboxFrame.addEventListener('load', () => {
+      // Frame loaded; wait for __ready message
+      _waitForSandboxReady().then(() => {
+        if (app.onReady) app.onReady();
+      });
+    });
   }
 
   function close() {
+    if (_sandboxFrame) {
+      _sandboxFrame.srcdoc = '';
+      _sandboxFrame = null;
+    }
+    _sandboxReady = false;
     _activeId = null;
   }
 
@@ -45,6 +188,11 @@
 
   function getList() {
     return Object.values(_apps);
+  }
+
+  /** Send a message to a sandboxed miniapp */
+  function sendTo(appId, type, data) {
+    _sendToSandbox(appId, type, data);
   }
 
   function _esc(s) {
@@ -202,7 +350,14 @@
             if (input && list && input.value.trim()) {
               const li = document.createElement('li');
               li.className = 'todo-item';
-              li.innerHTML = `<input type="checkbox"/><span>${input.value.trim()}</span>`;
+
+              // Build DOM safely — no innerHTML with user input
+              const cb = document.createElement('input');
+              cb.type = 'checkbox';
+              const span = document.createElement('span');
+              span.textContent = input.value.trim();
+              li.appendChild(cb);
+              li.appendChild(span);
               list.appendChild(li);
               input.value = '';
             }
@@ -218,6 +373,9 @@
     });
   }
 
+  // ── Listen for sandbox messages ──────────────────────────
+  window.addEventListener('message', _onSandboxMessage);
+
   // ── Public API ───────────────────────────────────────────
   window.Miniapps = {
     register,
@@ -225,8 +383,12 @@
     close,
     isActive,
     getList,
+    sendTo,
     reset() {
       _activeId = null;
+      _sandboxFrame = null;
+      _sandboxReady = false;
+      _sandboxReadyCallbacks = [];
       for (const k of Object.keys(_apps)) delete _apps[k];
       _registerDefaults();
     },

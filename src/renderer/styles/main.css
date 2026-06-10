@@ -902,6 +902,8 @@ html, body {
 .miniapp-icon { font-size: 18px; }
 .miniapp-name { font-size: 13px; font-weight: 600; }
 .miniapp-body { flex: 1; overflow-y: auto; }
+.minapp-sandboxed .miniapp-body { padding: 0; overflow: hidden; }
+.minapp-iframe { width: 100%; height: 100%; border: none; background: transparent; }
 
 /* Calculator */
 .miniapp-calc { display: flex; flex-direction: column; gap: 8px; }
