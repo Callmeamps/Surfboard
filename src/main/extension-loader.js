@@ -167,6 +167,80 @@ function getDefaultExtensionsDir() {
 }
 
 /**
+ * Register the web-contents-created listener early (before any BrowserWindow).
+ * Actual injection happens when extensions are loaded.
+ */
+function initContentScriptInjection() {
+	const { app } = require('electron');
+
+	app.on('web-contents-created', (event, wc) => {
+		console.log('[Extension] web-contents-created:', wc.getType(), wc.getURL()?.substring(0, 80));
+		wc.on('did-navigate', (e, url) => {
+			console.log('[Extension] did-navigate:', url?.substring(0, 80));
+			_injectContentScripts(wc, url);
+		});
+		wc.on('did-navigate-in-page', (e, url) => {
+			_injectContentScripts(wc, url);
+		});
+	});
+}
+
+async function _injectContentScripts(wc, url) {
+	if (!url || !/^https?:\/\//.test(url)) return;
+
+	const extApi = getExtApi();
+	const loadedExts = extApi.getAllExtensions();
+
+	for (const ext of loadedExts) {
+		const manifest = ext.manifest;
+		if (!manifest?.content_scripts) continue;
+
+		for (const cs of manifest.content_scripts) {
+			const matches = cs.matches || [];
+			const matched = matches.some(pattern => {
+				if (pattern === '<all_urls>') return /^https?:\/\//.test(url);
+				const re = new RegExp(
+					'^' + pattern.replace(/\./g, '\.').replace(/\*/g, '.*') + '$'
+				);
+				return re.test(url);
+			});
+
+			if (!matched) continue;
+
+			const bgWC = _findBackgroundPage();
+			if (!bgWC) continue;
+
+			try {
+				const tabId = wc.id;
+				for (const jsFile of cs.js || []) {
+					await bgWC.executeJavaScript(
+						`browser.tabs.executeScript(${tabId}, ${JSON.stringify({
+							file: jsFile,
+							allFrames: cs.all_frames || false,
+							runAt: cs.run_at || 'document_idle',
+						})})`
+					);
+				}
+			} catch (err) {
+				// Content script injection failed
+			}
+		}
+	}
+}
+
+function _findBackgroundPage() {
+	const { webContents } = require('electron');
+	const allWC = webContents.getAllWebContents();
+	for (const wc of allWC) {
+		const url = wc.getURL();
+		if (url.includes('chrome-extension://') && url.includes('background')) {
+			return wc;
+		}
+	}
+	return null;
+}
+
+/**
  * Auto-scan default extensions directory on startup.
  */
 async function autoLoadExtensions() {
@@ -213,4 +287,5 @@ module.exports = {
 	getDefaultExtensionsDir,
 	getExtSession,
 	getExtApi,
+	initContentScriptInjection,
 };

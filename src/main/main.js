@@ -132,6 +132,11 @@ app.whenReady().then(async () => {
   installAdBlocker();
   profiles.init();
   ipcHandlers.register();
+
+  // Set up content script injection early (before any BrowserWindow)
+  const extensionLoader = require('./extension-loader');
+  extensionLoader.initContentScriptInjection();
+
   await createWindow();
 
   // Create an initial blank tab

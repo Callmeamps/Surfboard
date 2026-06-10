@@ -23,13 +23,18 @@ jest.mock('electron', () => ({
   session: {
     defaultSession: {
       extensions: mockExtensionsApi,
+      webContents: { on: jest.fn() },
     },
     fromPartition: jest.fn(() => ({
       extensions: mockExtensionsApi,
+      webContents: { on: jest.fn() },
     })),
   },
   BrowserWindow: {
     getAllWindows: jest.fn(() => []),
+  },
+  webContents: {
+    getAllWebContents: jest.fn(() => []),
   },
 }));
 
@@ -63,13 +68,18 @@ beforeEach(() => {
     session: {
       defaultSession: {
         extensions: freshMockExtensionsApi,
+        webContents: { on: jest.fn() },
       },
       fromPartition: jest.fn(() => ({
         extensions: freshMockExtensionsApi,
+        webContents: { on: jest.fn() },
       })),
     },
     BrowserWindow: {
       getAllWindows: jest.fn(() => []),
+    },
+    webContents: {
+      getAllWebContents: jest.fn(() => []),
     },
   }));
 
