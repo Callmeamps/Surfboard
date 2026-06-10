@@ -10,6 +10,8 @@ storage.json
 *.swp
 *.bak
 .DS_Store
+test/profile-*.json
+test/profiles.json
 
 # Beads / Dolt files (added by bd init)
 .dolt/

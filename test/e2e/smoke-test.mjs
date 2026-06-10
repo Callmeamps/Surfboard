@@ -242,7 +242,21 @@ async function main() {
     console.log("Canvas host after Ctrl+Shift+B hidden:", hidden3, "(expected: false)");
   }
 
-  // ── 14. Check window controls exist ──────────────────
+  // ── 14. Canvas pages native mode check ──────────────
+  console.log("\n--- Canvas pages native mode ---");
+  const nativeMode = await mainWindow.evaluate(() => {
+    return window.CanvasPages ? window.CanvasPages.isNativeMode() : 'N/A';
+  });
+  console.log("CanvasPages.isNativeMode():", nativeMode);
+  const electronVersion = await mainWindow.evaluate(() => process.versions.electron);
+  console.log("Electron version:", electronVersion);
+  if (nativeMode === true) {
+    console.log("  ✓ Native HTML-in-Canvas active (Electron 42+)");
+  } else {
+    console.log("  ℹ Fallback mode (Electron < 38 or no drawElementImage)");
+  }
+
+  // ── 15. Check window controls exist ──────────────────
   console.log("\n--- Window controls ---");
   const winBtns = ['#window-minimize', '#window-maximize', '#window-close',
     '#sidebar-toggle', '#new-tab-btn'];
@@ -251,7 +265,7 @@ async function main() {
     console.log(`  ${btn ? '✓' : '✗'} ${sel}`);
   }
 
-  // ── 15. Check for renderer errors ────────────────────
+  // ── 16. Check for renderer errors ────────────────────
   console.log("\n--- Checking for errors ---");
   const pageErrors = [];
   mainWindow.on('pageerror', err => {
@@ -263,7 +277,7 @@ async function main() {
     console.log("✓ No renderer errors detected");
   }
 
-  // ── 16. Check feature platform modules loaded ────────
+  // ── 17. Check feature platform modules loaded ────────
   console.log("\n--- Feature platform modules ---");
   const modules = {
     ModeManager: 'ModeManager',
@@ -283,7 +297,7 @@ async function main() {
     console.log(`  ${exists ? '✓' : '✗'} ${name}: ${exists ? 'loaded' : 'MISSING'}`);
   }
 
-  // ── 17. Check extensions loaded ─────────────────────
+  // ── 18. Check extensions loaded ─────────────────────
   console.log("\n--- Extensions check ---");
   const extInfo = await mainWindow.evaluate(async () => {
     if (window.electronAPI?.extensions?.list) {
