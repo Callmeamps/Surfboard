@@ -7,25 +7,25 @@
 // Mock Electron and dependencies before requiring the module
 const mockLoadExtension = jest.fn();
 const mockRemoveExtension = jest.fn();
+const mockGetAllExtensions = jest.fn(() => []);
 const mockReadFile = jest.fn();
 const mockReaddir = jest.fn();
 const mockJoin = jest.fn((...args) => args.join('/'));
 const mockBasename = jest.fn((p) => p.split('/').pop());
 
-const mockExtensions = {
+const mockExtensionsApi = {
   loadExtension: mockLoadExtension,
-  unloadExtension: mockRemoveExtension,
+  removeExtension: mockRemoveExtension,
+  getAllExtensions: mockGetAllExtensions,
 };
 
 jest.mock('electron', () => ({
   session: {
     defaultSession: {
-      loadExtension: mockLoadExtension,
-      removeExtension: mockRemoveExtension,
+      extensions: mockExtensionsApi,
     },
     fromPartition: jest.fn(() => ({
-      loadExtension: mockLoadExtension,
-      removeExtension: mockRemoveExtension,
+      extensions: mockExtensionsApi,
     })),
   },
   BrowserWindow: {
@@ -53,15 +53,19 @@ beforeEach(() => {
   jest.clearAllMocks();
 
   // Re-mock after resetModules
+  const freshMockExtensionsApi = {
+    loadExtension: mockLoadExtension,
+    removeExtension: mockRemoveExtension,
+    getAllExtensions: mockGetAllExtensions,
+  };
+
   jest.doMock('electron', () => ({
     session: {
       defaultSession: {
-        loadExtension: mockLoadExtension,
-        removeExtension: mockRemoveExtension,
+        extensions: freshMockExtensionsApi,
       },
       fromPartition: jest.fn(() => ({
-        loadExtension: mockLoadExtension,
-        removeExtension: mockRemoveExtension,
+        extensions: freshMockExtensionsApi,
       })),
     },
     BrowserWindow: {
@@ -217,7 +221,7 @@ describe('loadExtension', () => {
     const result = await extensionLoader.loadExtension('/fake/dir/null-ext');
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe('session.loadExtension returned null');
+    expect(result.error).toBe('extensions.loadExtension returned null');
   });
 
   test('uses manifest name when ext.name is missing', async () => {
@@ -261,7 +265,7 @@ describe('unloadExtension', () => {
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Test', version: '1.0' }));
     await extensionLoader.loadExtension('/fake/dir/ext-1');
 
-    mockRemoveExtension.mockResolvedValue(undefined);
+    mockRemoveExtension.mockReturnValue(undefined);
 
     const result = await extensionLoader.unloadExtension('ext-1');
 
@@ -284,7 +288,7 @@ describe('unloadExtension', () => {
     mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Test', version: '1.0' }));
     await extensionLoader.loadExtension('/fake/dir/ext-2');
 
-    mockRemoveExtension.mockResolvedValue(undefined);
+    mockRemoveExtension.mockReturnValue(undefined);
     await extensionLoader.unloadExtension('ext-2');
 
     // Second unload should fail

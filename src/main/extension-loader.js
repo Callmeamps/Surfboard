@@ -8,13 +8,23 @@ const SESSION_PARTITION = 'persist:riced-chromium';
  * Lazily get the extension session.
  * Must be called after app.whenReady() — creating fromPartition before ready
  * yields a session object where extension methods are undefined.
+ *
+ * In Electron 42+ the new ses.extensions API is preferred over the deprecated
+ * session.loadExtension / session.removeExtension / session.getAllExtensions.
  */
 let _extSession = null;
+let _extApi = null;
 function getExtSession() {
 	if (!_extSession) {
 		_extSession = session.fromPartition(SESSION_PARTITION);
 	}
 	return _extSession;
+}
+function getExtApi() {
+	if (!_extApi) {
+		_extApi = getExtSession().extensions;
+	}
+	return _extApi;
 }
 
 const DEFAULT_EXTENSIONS_DIR = path.join(
@@ -79,18 +89,18 @@ async function scanExtensions(dir = DEFAULT_EXTENSIONS_DIR) {
 
 /**
  * Load a single unpacked extension.
- * In Electron 42+, extension methods are on Session.prototype directly:
- * session#loadExtension, not session.extensions.loadExtension.
+ * In Electron 42+ the preferred API is session.extensions.loadExtension
+ * (the session.loadExtension method is deprecated).
  * @param {string} extensionPath
  * @returns {Promise<object>} { success: boolean, error?: string, id?: string, name?: string }
  */
 async function loadExtension(extensionPath) {
 	try {
-		const extSession = getExtSession();
-		const ext = await extSession.loadExtension(extensionPath, {
+		const extApi = getExtApi();
+		const ext = await extApi.loadExtension(extensionPath, {
 			allowFileAccess: false,
 		});
-		if (!ext) throw new Error('session.loadExtension returned null');
+		if (!ext) throw new Error('extensions.loadExtension returned null');
 		const extension = ext.extension ?? ext;
 
 		const manifest = await readManifest(extensionPath);
@@ -104,6 +114,7 @@ async function loadExtension(extensionPath) {
 		};
 		extensions.set(extension.id, descriptor);
 
+		console.log(`[Extension] Loaded: ${descriptor.name} (${descriptor.id})`);
 		scheduleBroadcast();
 		return { success: true, ...descriptor };
 	} catch (err) {
@@ -124,8 +135,8 @@ async function unloadExtension(id) {
 	}
 
 	try {
-		const extSession = getExtSession();
-		await extSession.removeExtension(id);
+		const extApi = getExtApi();
+		extApi.removeExtension(id);
 		descriptor.enabled = false;
 		extensions.set(id, descriptor);
 		scheduleBroadcast();
@@ -160,8 +171,17 @@ function getDefaultExtensionsDir() {
  */
 async function autoLoadExtensions() {
 	const dirs = await scanExtensions();
+	console.log(`[Extension] Found ${dirs.length} extension(s) in ${DEFAULT_EXTENSIONS_DIR}`);
 	for (const dir of dirs) {
 		await loadExtension(dir);
+	}
+	// Verify extensions are registered in the session
+	try {
+		const extApi = getExtApi();
+		const sessionExts = extApi.getAllExtensions();
+		console.log(`[Extension] Session reports ${sessionExts.length} loaded extension(s)`);
+	} catch (err) {
+		console.warn('[Extension] Could not verify session extensions:', err.message);
 	}
 }
 
@@ -191,4 +211,6 @@ module.exports = {
 	listExtensions,
 	autoLoadExtensions,
 	getDefaultExtensionsDir,
+	getExtSession,
+	getExtApi,
 };
