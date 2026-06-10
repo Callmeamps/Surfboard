@@ -14,6 +14,8 @@
   const $tabList       = document.getElementById('tab-list');
   const $minimapContainer = document.getElementById('minimap-container');
   const $newTabBtn     = document.getElementById('new-tab-btn');
+  const $navBack       = document.getElementById('nav-back');
+  const $navForward    = document.getElementById('nav-forward');
   const $bookmarks     = document.getElementById('bookmarks-list');
   const $wvContainer   = document.getElementById('webview-container');
   const $addrBar       = document.getElementById('address-bar');
@@ -22,6 +24,8 @@
   const $addrList      = document.getElementById('suggestions-list');
   const $newTabPage    = document.getElementById('new-tab-page');
   const $newTabInput   = document.getElementById('new-tab-input');
+  const $ntpDD         = document.getElementById('ntp-suggestions');
+  const $ntpList       = document.getElementById('ntp-suggestions-list');
   const $rsidebarAi       = document.getElementById('rsidebar-ai');
   const $rsidebarShell    = document.getElementById('rsidebar-shell');
   const $rsidebarEdit     = document.getElementById('rsidebar-edit');
@@ -354,14 +358,39 @@
     try {
       const exts = await _ext.list?.() || [];
       $extList.innerHTML = '';
-      if (!exts.length) { $extList.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-size:13px">No extensions loaded</div>'; return; }
-      exts.forEach(ex => {
-        const el = document.createElement('div');
-        el.className = 'ext-item';
-        el.innerHTML = `<div class="ext-icon">${ex.icon || '🧩'}</div><div class="ext-info"><div class="ext-name">${ex.name || ex.id}</div><div class="ext-desc">${ex.description || ''}</div></div><label class="ext-toggle"><input type="checkbox" ${ex.enabled ? 'checked' : ''} data-ext-id="${ex.id}"><span class="toggle-track"></span></label>`;
-        el.querySelector('input').addEventListener('change', (e) => { e.target.checked ? _ext.load(ex.path).catch(() => {}) : _ext.unload(ex.id).catch(() => {}); });
-        $extList.appendChild(el);
-      });
+      if (!exts.length) { $extList.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-size:13px">No extensions loaded</div>'; }
+      else {
+        exts.forEach(ex => {
+          const el = document.createElement('div');
+          el.className = 'ext-item';
+          const iconHtml = ex.icon ? `<img class="ext-icon-img" src="${ex.icon}" alt=""/>` : `<div class="ext-icon">🧩</div>`;
+          const linksHtml = [];
+          if (ex.popupUrl) linksHtml.push(`<a class="ext-link" data-url="${ex.popupUrl}" title="Open popup">Popup</a>`);
+          if (ex.optionsUrl) linksHtml.push(`<a class="ext-link" data-url="${ex.optionsUrl}" title="Open options">Options</a>`);
+          el.innerHTML = `${iconHtml}<div class="ext-info"><div class="ext-name">${ex.name || ex.id}</div><div class="ext-desc">${ex.description || ''}</div>${linksHtml.length ? `<div class="ext-links">${linksHtml.join('')}</div>` : ''}</div><label class="ext-toggle"><input type="checkbox" ${ex.enabled ? 'checked' : ''} data-ext-id="${ex.id}"><span class="toggle-track"></span></label>`;
+          el.querySelector('input').addEventListener('change', (e) => { e.target.checked ? _ext.load(ex.path).catch(() => {}) : _ext.unload(ex.id).catch(() => {}); });
+          el.querySelectorAll('.ext-link').forEach(link => {
+            link.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); _tabs.create(link.dataset.url); });
+          });
+          $extList.appendChild(el);
+        });
+      }
+      // Render extension icon buttons in right sidebar
+      const $extIcons = document.getElementById('rsidebar-ext-icons');
+      if ($extIcons) {
+        $extIcons.innerHTML = '';
+        exts.filter(ex => ex.enabled && ex.icon).forEach(ex => {
+          const btn = document.createElement('button');
+          btn.className = 'rsidebar-btn';
+          btn.title = ex.name || ex.id;
+          btn.innerHTML = `<img src="${ex.icon}" alt="" style="width:16px;height:16px;border-radius:2px"/>`;
+          btn.addEventListener('click', () => {
+            if (ex.popupUrl) _tabs.create(ex.popupUrl);
+            else _toggleExt();
+          });
+          $extIcons.appendChild(btn);
+        });
+      }
     } catch { /* */ }
   }
 
@@ -834,6 +863,16 @@
     try { document.getElementById('right-sidebar-toggle')?.addEventListener('click', () => window.RightSidebar?.toggleSidebar()); } catch (e) { console.warn('[init] rightSidebarToggle:', e.message); }
     try { $newTabBtn?.addEventListener('click', () => _tabs.create('about:blank')); } catch (e) { console.warn('[init] newTabBtn:', e.message); }
     try {
+      $navBack?.addEventListener('click', () => {
+        const id = window.PaperTM?.getActiveTabId();
+        if (id) _tabs.goBack?.(id);
+      });
+      $navForward?.addEventListener('click', () => {
+        const id = window.PaperTM?.getActiveTabId();
+        if (id) _tabs.goForward?.(id);
+      });
+    } catch (e) { console.warn('[init] nav buttons:', e.message); }
+    try {
       window.PaperTM?.init({ tabList: $tabList, wvContainer: $wvContainer, addrInput: $addrInput, ntp: $newTabPage, storage: _storage, tabsIPC: _tabs, minimapContainer: $minimapContainer });
       _tabs.onUpdated?.((d) => window.PaperTM?.onTabsUpdated(d));
     } catch (e) { console.warn('[init] PaperTM:', e.message); }
@@ -910,7 +949,64 @@
     } catch (e) { console.warn('[init] address bar:', e.message); }
 
     try {
-      $newTabInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); _nav($newTabInput.value); } });
+      let ntpActiveIdx = -1;
+      function _ntpHideSuggestions() { $ntpDD?.classList.add('hidden'); ntpActiveIdx = -1; }
+      function _ntpRenderSuggestions(items) {
+        if (!$ntpList || !$ntpDD) return;
+        if (!items.length) { _ntpHideSuggestions(); return; }
+        $ntpList.innerHTML = '';
+        items.forEach((s, i) => {
+          const li = document.createElement('li');
+          li.className = 'suggestion-item' + (i === ntpActiveIdx ? ' active' : '');
+          li.innerHTML = `<span class="ico">${s.icon}</span><span class="txt">${s.text}</span>`;
+          li.addEventListener('click', () => { $newTabInput.value = s.text; _nav(s.url); });
+          $ntpList.appendChild(li);
+        });
+        $ntpDD.classList.remove('hidden');
+      }
+      async function _ntpBuildSuggestions(q) {
+        if (!q) { _ntpHideSuggestions(); return; }
+        q = q.toLowerCase();
+        const items = [];
+        historyEntries.forEach(h => {
+          const title = h.title || h.url || '';
+          const score = _fuzzyScore(title, q);
+          if (score) items.push({ icon: '🕐', text: title, url: h.url, score });
+        });
+        document.querySelectorAll('.bookmark-item').forEach(el => {
+          const lbl = el.querySelector('.label');
+          const u = el.dataset.url;
+          if (lbl && u) {
+            const score = _fuzzyScore(lbl.textContent, q);
+            if (score) items.push({ icon: '🔖', text: lbl.textContent, url: u, score });
+          }
+        });
+        items.push({ icon: '🔍', text: `Search "${q}"`, url: 'https://www.google.com/search?q=' + encodeURIComponent(q), score: 0 });
+        items.sort((a, b) => { if (a.icon === '🔍') return 1; if (b.icon === '🔍') return -1; return b.score - a.score; });
+        _ntpRenderSuggestions(items.slice(0, 8));
+      }
+      $newTabInput?.addEventListener('input', () => { ntpActiveIdx = -1; _ntpBuildSuggestions($newTabInput.value); });
+      $newTabInput?.addEventListener('focus', () => { if ($newTabInput.value) _ntpBuildSuggestions($newTabInput.value); });
+      $newTabInput?.addEventListener('blur', () => setTimeout(_ntpHideSuggestions, 150));
+      $newTabInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const items = $ntpList ? [...$ntpList.querySelectorAll('.suggestion-item')] : [];
+          const active = ntpActiveIdx >= 0 && items[ntpActiveIdx];
+          if (active) { active.click(); } else { _nav($newTabInput.value); }
+        } else if (e.key === 'Escape') {
+          e.preventDefault(); _ntpHideSuggestions();
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const count = $ntpList?.children.length || 0;
+          ntpActiveIdx = Math.min(ntpActiveIdx + 1, count - 1);
+          _ntpBuildSuggestions($newTabInput.value);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          ntpActiveIdx = Math.max(ntpActiveIdx - 1, -1);
+          _ntpBuildSuggestions($newTabInput.value);
+        }
+      });
       document.querySelectorAll('.new-tab-link').forEach(l => l.addEventListener('click', (e) => { e.preventDefault(); if (l.dataset.url) _nav(l.dataset.url); }));
     } catch (e) { console.warn('[init] new tab:', e.message); }
 

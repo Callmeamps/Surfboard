@@ -1,4 +1,4 @@
-const { app, ipcMain, webContents, BrowserWindow } = require('electron');
+const { app, ipcMain, webContents, BrowserWindow, Menu, clipboard, shell: electronShell } = require('electron');
 const tabManager = require('./tab-manager');
 const windowManager = require('./window-manager');
 const storage = require('./storage');
@@ -111,6 +111,18 @@ function register() {
     return tabManager.update(tabId, patch);
   });
 
+  ipcMain.handle('tabs:go-back', (_event, tabId) => {
+    const wc = tabLifecycle.getWebContents(tabId);
+    if (wc && wc.canGoBack()) wc.goBack();
+    return true;
+  });
+
+  ipcMain.handle('tabs:go-forward', (_event, tabId) => {
+    const wc = tabLifecycle.getWebContents(tabId);
+    if (wc && wc.canGoForward()) wc.goForward();
+    return true;
+  });
+
   // ── Tab lifecycle (LOD / suspend-resume) ─────────────
   // Renderer registers webview webContents for LOD management
   ipcMain.on('tabs:register-webview', (_event, tabId, wcId) => {
@@ -118,6 +130,11 @@ function register() {
     if (wc) {
       if (!shortcutListeners.has(wc.id)) {
         wc.on('before-input-event', (event, input) => {
+          // Alt+Left/Right: back/forward navigation (handled directly on this webContents)
+          if (input.alt && !input.control && !input.meta && !input.shift) {
+            if (input.key === 'ArrowLeft') { event.preventDefault(); if (wc.canGoBack()) wc.goBack(); return; }
+            if (input.key === 'ArrowRight') { event.preventDefault(); if (wc.canGoForward()) wc.goForward(); return; }
+          }
           const action = getShortcutAction(input);
           if (!action) return;
           event.preventDefault();
@@ -354,5 +371,49 @@ function register() {
     return storage.dismissChangelog();
   });
 }
+
+  // ── Webview context menu ──────────────────────────────
+  ipcMain.on('webview:context-menu', (_event, params) => {
+    const win = windowManager.getWindow();
+    if (!win || win.isDestroyed()) return;
+
+    const template = [];
+
+    if (params.mediaType === 'image') {
+      template.push({ label: 'Open Image in New Tab', click: () => { if (params.srcURL) tabManager.create(params.srcURL); } });
+      template.push({ label: 'Copy Image', click: () => { webContents.fromId(_event.sender.id)?.copyImageAt(params.x, params.y); } });
+      template.push({ label: 'Copy Image Address', click: () => { if (params.srcURL) clipboard.writeText(params.srcURL); } });
+      template.push({ type: 'separator' });
+    }
+
+    if (params.linkURL) {
+      template.push({ label: 'Open Link in New Tab', click: () => tabManager.create(params.linkURL) });
+      template.push({ label: 'Open Link in New Window', click: () => { if (params.linkURL) electronShell.openExternal(params.linkURL); } });
+      template.push({ label: 'Copy Link Address', click: () => { if (params.linkURL) clipboard.writeText(params.linkURL); } });
+      template.push({ type: 'separator' });
+    }
+
+    if (params.selectionText) {
+      template.push({ label: `Copy`, accelerator: 'CmdOrCtrl+C', click: () => { webContents.fromId(_event.sender.id)?.copy(); } });
+      template.push({ type: 'separator' });
+    }
+
+    if (params.mediaType === 'none' && !params.linkURL && !params.selectionText) {
+      template.push({ label: 'Back', click: () => { const wc = webContents.fromId(_event.sender.id); if (wc && wc.canGoBack()) wc.goBack(); } });
+      template.push({ label: 'Forward', click: () => { const wc = webContents.fromId(_event.sender.id); if (wc && wc.canGoForward()) wc.goForward(); } });
+      template.push({ label: 'Reload', click: () => webContents.fromId(_event.sender.id)?.reload() });
+      template.push({ type: 'separator' });
+    }
+
+    template.push({ label: 'Save Page As…', accelerator: 'CmdOrCtrl+S', click: () => { const win = windowManager.getWindow(); if (win) win.webContents.send('app:shortcut', 'save-page'); } });
+    template.push({ label: 'Select All', accelerator: 'CmdOrCtrl+A', click: () => webContents.fromId(_event.sender.id)?.selectAll() });
+    template.push({ type: 'separator' });
+    template.push({ label: 'Inspect Element', click: () => webContents.fromId(_event.sender.id)?.inspectElement(params.x, params.y) });
+
+    if (!template.length) return;
+
+    const menu = Menu.buildFromTemplate(template);
+    menu.popup({ window: win });
+  });
 
 module.exports = { register };

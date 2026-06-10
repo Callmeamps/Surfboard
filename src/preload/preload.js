@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     registerWebview: (tabId, wcId) => ipcRenderer.send('tabs:register-webview', tabId, wcId),
     notifyVisibility: (tabId, visible) => ipcRenderer.invoke('tabs:notify-visibility', tabId, visible),
     resume: (tabId, url) => ipcRenderer.invoke('tabs:resume', tabId, url),
+    goBack: (tabId) => ipcRenderer.invoke('tabs:go-back', tabId),
+    goForward: (tabId) => ipcRenderer.invoke('tabs:go-forward', tabId),
     onUpdated: (callback) => {
       const listener = (_e, tabs) => callback(tabs);
       ipcRenderer.on('tabs:updated', listener);
@@ -99,6 +101,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     load: (extensionPath) => ipcRenderer.invoke('extensions:load', extensionPath),
     list: () => ipcRenderer.invoke('extensions:list'),
     unload: (extensionId) => ipcRenderer.invoke('extensions:unload', extensionId),
+  },
+
+  // ── Webview context menu ──────────────────────────────
+  webview: {
+    showContextMenu: (params) => ipcRenderer.send('webview:context-menu', params),
   },
 
   // ── Window controls ───────────────────────────────────

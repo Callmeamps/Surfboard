@@ -106,6 +106,19 @@
       _syncTab({ url });
     });
     wv.addEventListener('new-window', (e) => { e.preventDefault(); if (e.url && e.url !== 'about:blank') _deps.tabsIPC.create(e.url); });
+    wv.addEventListener('context-menu', (e) => {
+      e.preventDefault();
+      window.electronAPI?.webview?.showContextMenu({
+        x: e.params?.x ?? 0,
+        y: e.params?.y ?? 0,
+        linkURL: e.params?.linkURL || '',
+        linkText: e.params?.linkText || '',
+        srcURL: e.params?.srcURL || '',
+        mediaType: e.params?.mediaType || 'none',
+        selectionText: e.params?.selectionText || '',
+        editFlags: e.params?.editFlags || 0,
+      });
+    });
 
     _deps.wvContainer.appendChild(wv);
     _wvMap.set(tabId, wv);

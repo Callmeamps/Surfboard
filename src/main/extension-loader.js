@@ -1,5 +1,6 @@
 const { session, BrowserWindow } = require('electron');
 const fs = require('fs/promises');
+const fssync = require('fs');
 const path = require('path');
 
 const SESSION_PARTITION = 'persist:riced-chromium';
@@ -54,6 +55,30 @@ async function readManifest(dir) {
 }
 
 /**
+ * Resolve extension icon from manifest as a data URI.
+ * Prefers 48px, falls back to 16px, 128px, then empty.
+ * @param {object|null} manifest
+ * @param {string} extDir
+ * @returns {string} data:image/png;base64,... or ''
+ */
+function _resolveManifestIcon(manifest, extDir) {
+	if (!manifest?.icons) return '';
+	const sizes = [48, 16, 128, 32, 96, 256];
+	for (const size of sizes) {
+		const rel = manifest.icons[String(size)];
+		if (!rel) continue;
+		try {
+			const iconPath = path.join(extDir, rel);
+			const buf = fssync.readFileSync(iconPath);
+			const ext = path.extname(rel).toLowerCase();
+			const mime = ext === '.svg' ? 'image/svg+xml' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
+			return `data:${mime};base64,${buf.toString('base64')}`;
+		} catch { /* skip missing icon */ }
+	}
+	return '';
+}
+
+/**
  * Scan a directory for unpacked Chrome extensions (manifest.json).
  * @param {string} dir
  * @returns {Promise<string[]>} List of valid extension directories.
@@ -104,13 +129,20 @@ async function loadExtension(extensionPath) {
 		const extension = ext.extension ?? ext;
 
 		const manifest = await readManifest(extensionPath);
+		const icon = _resolveManifestIcon(manifest, extensionPath);
+		const popup = manifest?.action?.default_popup || manifest?.browser_action?.default_popup || '';
+		const options = manifest?.options_page || manifest?.options_ui?.page || '';
+		const popupUrl = popup ? `chrome-extension://${extension.id}/${popup}` : '';
+		const optionsUrl = options ? `chrome-extension://${extension.id}/${options}` : '';
 		const descriptor = {
 			id: extension.id,
 			name: extension.name || (manifest?.name || path.basename(extensionPath)),
 			version: manifest?.version || '0.0.0',
 			enabled: true,
 			path: extensionPath,
-			icon: '', // Could be set from manifest/icons
+			icon,
+			popupUrl,
+			optionsUrl,
 		};
 		extensions.set(extension.id, descriptor);
 
