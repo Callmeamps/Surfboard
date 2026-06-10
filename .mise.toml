@@ -17,6 +17,10 @@ e2e  = { description = "Run E2E smoke test (requires display)", run = "node test
 # ── CI (runs on GitHub Actions via mise-action) ────────────────
 ci = { description = "Full CI pipeline: clean install + test", run = "npm ci && npm test" }
 
+# ── Build ────────────────────────────────────────────────────
+build = { description = "Build unpacked app directory", run = "npm run build" }
+dist  = { description = "Build distributable installers", run = "npm run dist" }
+
 # ── Quality ────────────────────────────────────────────────────
 outdated = { description = "Check for outdated npm deps", run = "npm outdated" }
 doctor   = { description = "Check mise installation", run = "mise doctor" }

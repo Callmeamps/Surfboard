@@ -1,4 +1,5 @@
 node_modules/
+dist/
 
 # Mise local overrides (user-specific, not committed)
 mise.local.toml
