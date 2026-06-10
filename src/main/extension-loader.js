@@ -174,15 +174,53 @@ function initContentScriptInjection() {
 	const { app } = require('electron');
 
 	app.on('web-contents-created', (event, wc) => {
-		console.log('[Extension] web-contents-created:', wc.getType(), wc.getURL()?.substring(0, 80));
+		wc.on('dom-ready', () => {
+			_injectExtensionPolyfills(wc);
+		});
 		wc.on('did-navigate', (e, url) => {
-			console.log('[Extension] did-navigate:', url?.substring(0, 80));
 			_injectContentScripts(wc, url);
 		});
 		wc.on('did-navigate-in-page', (e, url) => {
 			_injectContentScripts(wc, url);
 		});
 	});
+}
+
+/**
+ * Inject polyfills into extension background pages and popups.
+ * Electron doesn't implement chrome.storage.sync, chrome.action, etc.
+ */
+function _injectExtensionPolyfills(wc) {
+	const url = wc.getURL();
+	if (!url?.startsWith('chrome-extension://')) return;
+
+	const polyfill = `
+		(function() {
+			// chrome.storage.sync -> chrome.storage.local
+			if (chrome.storage && !chrome.storage.sync) {
+				chrome.storage.sync = chrome.storage.local;
+			}
+			// chrome.action -> chrome.browserAction (MV3 -> MV2)
+			if (!chrome.action && chrome.browserAction) {
+				chrome.action = chrome.browserAction;
+			}
+			// chrome.scripting.executeScript
+			if (!chrome.scripting) {
+				chrome.scripting = {
+					executeScript(tabId, details) {
+						return new Promise((resolve, reject) => {
+							chrome.tabs.executeScript(tabId, details, (results) => {
+								if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+								else resolve(results);
+							});
+						});
+				}
+			};
+		}
+	})();
+	`;
+
+	wc.executeJavaScript(polyfill).catch(() => {});
 }
 
 async function _injectContentScripts(wc, url) {
