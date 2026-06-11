@@ -15,6 +15,7 @@
     { id: 'workflows', icon: '⚡', label: 'Workflows' },
     { id: 'links', icon: '🔗', label: 'Links' },
     { id: 'cookies', icon: '🍪', label: 'Cookies' },
+    { id: 'ssh', icon: '🔐', label: 'SSH' },
   ];
 
   let $container = null;
@@ -191,6 +192,7 @@
       case 'workflows':  return buildWorkflowsPage();
       case 'links':      return buildLinksPage(data?.bookmarks);
       case 'cookies':    return buildCookiesPage(data?.cookies);
+      case 'ssh':         return buildSSHPage(data?.sshConnections, data?.sshState);
       default:           return '<div class="tp-empty"><div class="tp-empty-text">Page not found</div></div>';
     }
   }
@@ -213,6 +215,8 @@
       bindLinksEvents();
     } else if (pageId === 'cookies') {
       bindCookiesEvents();
+    } else if (pageId === 'ssh') {
+      bindSSHEvents();
     }
   }
 
@@ -739,6 +743,207 @@
     });
   }
 
+  // ── SSH page ─────────────────────────────────────────────
+  let _sshOutputBuffer = '';
+  let _sshUnsubOutput = null;
+  let _sshUnsubStatus = null;
+
+  function buildSSHPage(connections, state) {
+    const conns = connections || [];
+    const isConnected = state?.connected || false;
+
+    return html`
+      <div class="tp-page" data-page="ssh">
+        <div class="tp-page-header">
+          <h1 class="tp-page-title">🔐 SSH Sessions</h1>
+          <p class="tp-page-desc">Connect to remote servers via SSH. Save connection profiles for quick access.</p>
+        </div>
+
+        <div class="tp-ssh-layout">
+          <div class="tp-ssh-sidebar">
+            <div class="tp-ssh-sidebar-header">
+              <span>Saved Connections</span>
+              <button class="tp-btn tp-btn-sm" id="ssh-add-connection">+</button>
+            </div>
+            <div class="tp-ssh-connections-list">
+              ${conns.length === 0 ? `
+                <div class="tp-empty">
+                  <div class="tp-empty-text" style="font-size:11px">No saved connections</div>
+                </div>
+              ` : conns.map(c => `
+                <div class="tp-ssh-conn-item ${isConnected && state?.host === c.host ? 'active' : ''}" data-conn-id="${_esc(c.id)}">
+                  <div class="tp-ssh-conn-info">
+                    <div class="tp-ssh-conn-name">${_esc(c.name)}</div>
+                    <div class="tp-ssh-conn-host">${_esc(c.username)}@${_esc(c.host)}:${c.port}</div>
+                  </div>
+                  <button class="tp-btn tp-btn-sm tp-btn-danger tp-ssh-conn-delete" data-conn-delete="${_esc(c.id)}">🗑️</button>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="tp-ssh-main">
+            ${!isConnected ? `
+              <div class="tp-ssh-connect-form" id="ssh-connect-form">
+                <h3 style="margin-bottom:12px;color:var(--text)">New Connection</h3>
+                <div class="tp-ssh-form-row">
+                  <input class="tp-input" id="ssh-host" placeholder="Host (e.g., example.com)" />
+                  <input class="tp-input tp-input-sm" id="ssh-port" placeholder="22" value="22" style="width:80px" />
+                </div>
+                <div class="tp-ssh-form-row">
+                  <input class="tp-input" id="ssh-username" placeholder="Username" />
+                  <input class="tp-input" id="ssh-password" placeholder="Password (optional)" type="password" />
+                </div>
+                <div class="tp-ssh-form-row">
+                  <input class="tp-input" id="ssh-key-path" placeholder="Private key path (optional)" />
+                </div>
+                <div class="tp-ssh-form-actions">
+                  <button class="tp-btn tp-btn-primary" id="ssh-connect-btn">Connect</button>
+                  <button class="tp-btn" id="ssh-save-btn">Save Connection</button>
+                </div>
+              </div>
+            ` : `
+              <div class="tp-ssh-terminal-header">
+                <span class="tp-ssh-status">🟢 Connected to ${_esc(state?.host || '')}</span>
+                <button class="tp-btn tp-btn-sm tp-btn-danger" id="ssh-disconnect-btn">Disconnect</button>
+              </div>
+              <div class="tp-ssh-terminal" id="ssh-output"></div>
+              <div class="tp-ssh-input-row">
+                <span class="tp-ssh-prompt">$</span>
+                <input class="tp-input tp-ssh-input" id="ssh-input" placeholder="Enter command…" autofocus />
+              </div>
+            `}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function bindSSHEvents() {
+    if (!$container) return;
+    const main = $container.querySelector('.tp-content');
+    if (!main) return;
+
+    // Cleanup previous listeners
+    if (_sshUnsubOutput) { _sshUnsubOutput(); _sshUnsubOutput = null; }
+    if (_sshUnsubStatus) { _sshUnsubStatus(); _sshUnsubStatus = null; }
+
+    // Subscribe to SSH output
+    _sshUnsubOutput = window.electronAPI?.ssh?.onOutput?.((data) => {
+      const output = main.querySelector('#ssh-output');
+      if (!output) return;
+      _sshOutputBuffer += data.text;
+      output.textContent = _sshOutputBuffer;
+      output.scrollTop = output.scrollHeight;
+    });
+
+    _sshUnsubStatus = window.electronAPI?.ssh?.onStatus?.((status) => {
+      // Re-render on status change
+      _refreshSSHPage(main);
+    });
+
+    // Connect button
+    main.querySelector('#ssh-connect-btn')?.addEventListener('click', async () => {
+      const host = main.querySelector('#ssh-host')?.value.trim();
+      const port = parseInt(main.querySelector('#ssh-port')?.value) || 22;
+      const username = main.querySelector('#ssh-username')?.value.trim();
+      const password = main.querySelector('#ssh-password')?.value;
+      const privateKeyPath = main.querySelector('#ssh-key-path')?.value.trim();
+
+      if (!host || !username) {
+        alert('Host and username are required');
+        return;
+      }
+
+      try {
+        await window.electronAPI?.ssh?.connect?.({ host, port, username, password, privateKeyPath });
+        _sshOutputBuffer = '';
+        _refreshSSHPage(main);
+      } catch (err) {
+        alert(`Connection failed: ${err.message}`);
+      }
+    });
+
+    // Save connection
+    main.querySelector('#ssh-save-btn')?.addEventListener('click', async () => {
+      const host = main.querySelector('#ssh-host')?.value.trim();
+      const port = parseInt(main.querySelector('#ssh-port')?.value) || 22;
+      const username = main.querySelector('#ssh-username')?.value.trim();
+      const privateKeyPath = main.querySelector('#ssh-key-path')?.value.trim();
+
+      if (!host || !username) {
+        alert('Host and username are required');
+        return;
+      }
+
+      const id = `${username}@${host}`;
+      const name = prompt('Connection name:', id) || id;
+      await window.electronAPI?.ssh?.connections?.save?.(id, { name, host, port, username, privateKeyPath });
+      _refreshSSHPage(main);
+    });
+
+    // Disconnect
+    main.querySelector('#ssh-disconnect-btn')?.addEventListener('click', async () => {
+      await window.electronAPI?.ssh?.disconnect?.();
+      _sshOutputBuffer = '';
+      _refreshSSHPage(main);
+    });
+
+    // SSH input
+    main.querySelector('#ssh-input')?.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        const input = main.querySelector('#ssh-input');
+        const cmd = input?.value.trim();
+        if (!cmd) return;
+        input.value = '';
+        await window.electronAPI?.ssh?.send?.(cmd);
+      }
+    });
+
+    // Click saved connection to connect
+    main.querySelectorAll('.tp-ssh-conn-item').forEach(item => {
+      item.addEventListener('click', async (e) => {
+        if (e.target.closest('.tp-ssh-conn-delete')) return;
+        const id = item.dataset.connId;
+        // Find connection details from the list
+        const conns = await window.electronAPI?.ssh?.connections?.list?.() || [];
+        const conn = conns.find(c => c.id === id);
+        if (!conn) return;
+        try {
+          await window.electronAPI?.ssh?.connect?.({
+            host: conn.host,
+            port: conn.port,
+            username: conn.username,
+          });
+          _sshOutputBuffer = '';
+          _refreshSSHPage(main);
+        } catch (err) {
+          alert(`Connection failed: ${err.message}`);
+        }
+      });
+    });
+
+    // Delete saved connection
+    main.querySelectorAll('[data-conn-delete]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.connDelete;
+        if (!confirm('Delete this saved connection?')) return;
+        await window.electronAPI?.ssh?.connections?.delete?.(id);
+        _refreshSSHPage(main);
+      });
+    });
+  }
+
+  async function _refreshSSHPage(main) {
+    const page = main.querySelector('.tp-page[data-page="ssh"]');
+    if (!page) return;
+    const connections = await window.electronAPI?.ssh?.connections?.list?.() || [];
+    const state = await window.electronAPI?.ssh?.state?.() || {};
+    page.outerHTML = buildSSHPage(connections, state);
+    bindSSHEvents();
+  }
+
   // ── Navigation ───────────────────────────────────────────
   function showPage(pageId) {
     $container.querySelectorAll('.tp-nav-item').forEach(btn => {
@@ -780,7 +985,17 @@
       } catch { /* */ }
     }
 
-    const pageData = { extensions, bookmarks, cookies };
+    // Fetch SSH data if on SSH page
+    let sshConnections = [];
+    let sshState = {};
+    if (pageId === 'ssh') {
+      try {
+        sshConnections = await window.electronAPI?.ssh?.connections?.list?.() || [];
+        sshState = await window.electronAPI?.ssh?.state?.() || {};
+      } catch { /* */ }
+    }
+
+    const pageData = { extensions, bookmarks, cookies, sshConnections, sshState };
 
     container.innerHTML = html`
       <div class="tab-pages">

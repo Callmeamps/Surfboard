@@ -90,7 +90,7 @@ describe('TabPages', () => {
 
   test('getPageIds returns all page IDs', () => {
     const ids = window.TabPages.getPageIds();
-    expect(ids).toEqual(['extensions', 'agents', 'shell', 'workflows', 'links', 'cookies']);
+    expect(ids).toEqual(['extensions', 'agents', 'shell', 'workflows', 'links', 'cookies', 'ssh']);
   });
 
   // ── Extensions page ──────────────────────────────────────

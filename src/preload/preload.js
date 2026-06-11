@@ -112,6 +112,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
     export: () => ipcRenderer.invoke('cookies:export'),
   },
 
+  // ── SSH sessions ─────────────────────────────────────
+  ssh: {
+    connect: (config) => ipcRenderer.invoke('ssh:connect', config),
+    disconnect: () => ipcRenderer.invoke('ssh:disconnect'),
+    send: (command) => ipcRenderer.invoke('ssh:send', command),
+    state: () => ipcRenderer.invoke('ssh:state'),
+    connections: {
+      list: () => ipcRenderer.invoke('ssh:connections:list'),
+      save: (id, config) => ipcRenderer.invoke('ssh:connections:save', id, config),
+      delete: (id) => ipcRenderer.invoke('ssh:connections:delete', id),
+    },
+    onOutput: (listener) => {
+      ipcRenderer.on('ssh:output', (_event, data) => listener(data));
+      return () => ipcRenderer.removeListener('ssh:output', listener);
+    },
+    onStatus: (listener) => {
+      ipcRenderer.on('ssh:status', (_event, status) => listener(status));
+      return () => ipcRenderer.removeListener('ssh:status', listener);
+    },
+  },
+
   // ── Webview context menu ──────────────────────────────
   webview: {
     showContextMenu: (params) => ipcRenderer.send('webview:context-menu', params),

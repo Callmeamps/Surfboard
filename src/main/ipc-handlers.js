@@ -228,6 +228,55 @@ function register() {
     return shell.stop();
   });
 
+  // ── SSH sessions ─────────────────────────────────────
+  const { createSSHSessionManager } = require('./ssh-manager');
+  const sshManager = createSSHSessionManager();
+  let sshEventsBound = false;
+
+  function bindSSHEvents() {
+    if (sshEventsBound) return;
+    sshEventsBound = true;
+    sshManager.on('output', (data) => {
+      broadcastToWindows('ssh:output', data);
+    });
+    sshManager.on('status', (status) => {
+      broadcastToWindows('ssh:status', status);
+    });
+  }
+
+  app.on('before-quit', () => {
+    sshManager.disconnect();
+  });
+
+  ipcMain.handle('ssh:connect', async (_event, config) => {
+    bindSSHEvents();
+    return sshManager.connect(config);
+  });
+
+  ipcMain.handle('ssh:disconnect', async () => {
+    return sshManager.disconnect();
+  });
+
+  ipcMain.handle('ssh:send', async (_event, command) => {
+    return sshManager.send(command);
+  });
+
+  ipcMain.handle('ssh:state', () => {
+    return sshManager.getState();
+  });
+
+  ipcMain.handle('ssh:connections:list', () => {
+    return sshManager.getConnections();
+  });
+
+  ipcMain.handle('ssh:connections:save', async (_event, id, config) => {
+    return sshManager.saveConnection(id, config);
+  });
+
+  ipcMain.handle('ssh:connections:delete', async (_event, id) => {
+    return sshManager.deleteConnection(id);
+  });
+
   // ── Extensions ────────────────────────────────────────
   ipcMain.handle('extensions:load', async (_event, extensionPath) => {
     const extLoader = require('./extension-loader');

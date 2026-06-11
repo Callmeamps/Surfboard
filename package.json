@@ -21,14 +21,21 @@
       "!*.md"
     ],
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Network"
     },
     "mac": {
-      "target": ["dmg"]
+      "target": [
+        "dmg"
+      ]
     },
     "win": {
-      "target": ["nsis"]
+      "target": [
+        "nsis"
+      ]
     }
   },
   "jest": {
@@ -45,7 +52,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "electron": "^42.3.3"
+    "electron": "^42.3.3",
+    "ssh2": "^1.17.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
