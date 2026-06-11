@@ -556,6 +556,100 @@
   }
   function _openAiConfig() { window.SettingsModule.openAiConfig(); }
 
+  // ── Shortcut Menu ────────────────────────────────────────
+  const SHORTCUT_DATA = [
+    { title: 'Navigation', items: [
+      ['Address bar', 'Ctrl', 'L'],
+      ['New tab', 'Ctrl', 'T'],
+      ['Close tab', 'Ctrl', 'W'],
+      ['Next tab', 'Ctrl', 'Tab'],
+      ['Prev tab', 'Ctrl', 'Shift', 'Tab'],
+      ['Back', 'Alt', '←'],
+      ['Forward', 'Alt', '→'],
+    ]},
+    { title: 'Sidecar & Panels', items: [
+      ['AI sidecar', 'Ctrl', 'Shift', 'A'],
+      ['Shell sidecar', 'Ctrl', 'Shift', 'S'],
+      ['Sidebar', 'Ctrl', 'B'],
+      ['History', 'Ctrl', 'H'],
+      ['Settings', 'Ctrl', ','],
+    ]},
+    { title: 'Feature Platform', items: [
+      ['Cycle modes', 'Ctrl', 'Shift', 'M'],
+      ['Edit mode', 'Ctrl', 'Shift', 'E'],
+      ['Inspect mode', 'Ctrl', 'Shift', 'I'],
+      ['Action mode', 'Ctrl', 'Shift', 'K'],
+      ['Workflow mode', 'Ctrl', 'Shift', 'R'],
+      ['Data mode', 'Ctrl', 'Shift', 'D'],
+    ]},
+    { title: 'Canvas Pages', items: [
+      ['Bash', 'Ctrl', 'Shift', 'X'],
+      ['History', 'Ctrl', 'Shift', 'H'],
+      ['Bookmarks', 'Ctrl', 'Shift', 'B'],
+      ['Agents', 'Ctrl', 'Shift', 'G'],
+      ['Activity', 'Ctrl', 'Shift', 'J'],
+    ]},
+    { title: 'Tab Pages', items: [
+      ['Extensions', 'Alt', 'Shift', 'X'],
+      ['Agents', 'Alt', 'Shift', 'G'],
+      ['Shell', 'Alt', 'Shift', 'L'],
+      ['Workflows', 'Alt', 'Shift', 'F'],
+    ]},
+    { title: 'Dev', items: [
+      ['DevTools', 'F12'],
+      ['Shortcuts', '?'],
+    ]},
+  ];
+  let _shortcutMenuOpen = false;
+  function _toggleShortcutMenu() {
+    const $el = document.getElementById('shortcut-overlay');
+    if (!$el) return;
+    _shortcutMenuOpen = !_shortcutMenuOpen;
+    if (_shortcutMenuOpen) {
+      _renderShortcutMenu($el);
+      $el.classList.remove('hidden');
+    } else {
+      $el.classList.add('hidden');
+    }
+  }
+  function _renderShortcutMenu($el) {
+    const $body = $el.querySelector('#shortcut-body');
+    if (!$body) return;
+    $body.innerHTML = '';
+    for (const group of SHORTCUT_DATA) {
+      const $title = document.createElement('div');
+      $title.className = 'shortcut-group-title';
+      $title.textContent = group.title;
+      $body.appendChild($title);
+      const $group = document.createElement('div');
+      $group.className = 'shortcut-group';
+      for (const [label, ...keys] of group.items) {
+        const $row = document.createElement('div');
+        $row.className = 'shortcut-group-item';
+        const $label = document.createElement('span');
+        $label.textContent = label;
+        const $keys = document.createElement('div');
+        $keys.className = 'shortcut-group-keys';
+        for (const k of keys) {
+          const $kbd = document.createElement('kbd');
+          $kbd.textContent = k;
+          $keys.appendChild($kbd);
+        }
+        $row.appendChild($label);
+        $row.appendChild($keys);
+        $group.appendChild($row);
+      }
+      $body.appendChild($group);
+    }
+  }
+  function _setupShortcutOverlay() {
+    const $el = document.getElementById('shortcut-overlay');
+    if (!$el) return;
+    $el.addEventListener('click', (e) => { if (e.target === $el) _toggleShortcutMenu(); });
+    document.getElementById('shortcut-close')?.addEventListener('click', _toggleShortcutMenu);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && _shortcutMenuOpen) { e.preventDefault(); _toggleShortcutMenu(); } });
+  }
+
   // ── Chat ─────────────────────────────────────────────────
   async function _sendChat() {
     const text = $chatInput.value.trim(); if (!text) return;
@@ -703,6 +797,10 @@
   }
 
   // ── Keyboard ─────────────────────────────────────────────
+  function _isInputFocused() {
+    const el = document.activeElement;
+    return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+  }
   function _setupKeys() {
     document.addEventListener('keydown', (e) => {
       // F12 — toggle DevTools
@@ -716,6 +814,8 @@
       else if (c && e.shiftKey && e.key === 'A') { e.preventDefault(); _toggleSidecar('ai'); }
       else if (c && e.key === 'b') { e.preventDefault(); _toggleSidebar(); }
       else if (c && e.key === 'Tab') { e.preventDefault(); window.PaperTM?.cycleTab(e.shiftKey ? -1 : 1); }
+      // ? — toggle shortcut menu
+      else if (e.key === '?' && !c && !e.altKey && !_isInputFocused()) { e.preventDefault(); _toggleShortcutMenu(); }
       // Ctrl+Shift+M — cycle feature-platform modes
       else if (c && e.shiftKey && e.key === 'M') {
         e.preventDefault();
@@ -1085,6 +1185,7 @@
     $changelogOverlay?.addEventListener('click', (e) => { if (e.target === $changelogOverlay) _dismissChangelog(); });
 
     _setupKeys();
+    _setupShortcutOverlay();
 
     // Feature platform: modes + trust bootstrap
     try {

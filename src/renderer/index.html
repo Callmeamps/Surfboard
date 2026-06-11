@@ -151,19 +151,24 @@
             <span class="shortcut-hint">browser</span>
           </summary>
           <div class="shortcut-list">
-            <div class="shortcut-row"><span>Omnibar</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>L</kbd></span></div>
+            <div class="shortcut-row"><span>Address bar</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>L</kbd></span></div>
             <div class="shortcut-row"><span>New tab</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>T</kbd></span></div>
             <div class="shortcut-row"><span>Close tab</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>W</kbd></span></div>
+            <div class="shortcut-row"><span>Next / Prev tab</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Tab</kbd></span></div>
+            <div class="shortcut-row"><span>Sidebar</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>B</kbd></span></div>
             <div class="shortcut-row"><span>History</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>H</kbd></span></div>
             <div class="shortcut-row"><span>Settings</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>,</kbd></span></div>
             <div class="shortcut-row"><span>AI Sidecar</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd></span></div>
-            <div class="shortcut-row"><span>Shell</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></span></div>
+            <div class="shortcut-row"><span>Shell Sidecar</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></span></div>
+            <div class="shortcut-row"><span>Cycle modes</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>M</kbd></span></div>
             <div class="shortcut-row"><span>Edit mode</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>E</kbd></span></div>
             <div class="shortcut-row"><span>Inspect mode</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>I</kbd></span></div>
             <div class="shortcut-row"><span>Actions</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>K</kbd></span></div>
             <div class="shortcut-row"><span>Data</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>D</kbd></span></div>
             <div class="shortcut-row"><span>Workflows</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>R</kbd></span></div>
-            <div class="shortcut-row"><span>Sidebar</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>B</kbd></span></div>
+            <div class="shortcut-row"><span>Bash</span><span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>X</kbd></span></div>
+            <div class="shortcut-row"><span>DevTools</span><span class="shortcut-keys"><kbd>F12</kbd></span></div>
+            <div class="shortcut-row"><span>All shortcuts</span><span class="shortcut-keys"><kbd>?</kbd></span></div>
           </div>
         </details>
       </div>
@@ -389,6 +394,17 @@
           <button id="bm-dialog-cancel" class="bm-btn bm-btn-ghost">Cancel</button>
           <button id="bm-dialog-save" class="bm-btn bm-btn-primary">Save</button>
         </div>
+      </div>
+    </div>
+
+    <!-- ── Shortcut menu overlay ────────────────────────────── -->
+    <div id="shortcut-overlay" class="shortcut-overlay hidden">
+      <div class="shortcut-dialog">
+        <div class="shortcut-dialog-header">
+          <span class="shortcut-dialog-title">Keyboard Shortcuts</span>
+          <button id="shortcut-close" class="shortcut-close-btn" title="Close (Esc)">✕</button>
+        </div>
+        <div id="shortcut-body" class="shortcut-dialog-body"></div>
       </div>
     </div>
 
