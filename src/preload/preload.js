@@ -152,6 +152,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     showContextMenu: (params) => ipcRenderer.send('webview:context-menu', params),
   },
 
+  // ── Cloud Sessions ─────────────────────────────────────
+  cloud: {
+    status: (provider) => ipcRenderer.invoke('cloud:status', provider),
+    startDeviceCode: () => ipcRenderer.invoke('cloud:start-device-code'),
+    pollToken: (deviceCode, interval) => ipcRenderer.invoke('cloud:poll-token', deviceCode, interval),
+    disconnect: (provider) => ipcRenderer.invoke('cloud:disconnect', provider),
+    listWorkspaces: () => ipcRenderer.invoke('cloud:list-workspaces'),
+    startWorkspace: (name) => ipcRenderer.invoke('cloud:start-workspace', name),
+    stopWorkspace: (name) => ipcRenderer.invoke('cloud:stop-workspace', name),
+    deleteWorkspace: (name) => ipcRenderer.invoke('cloud:delete-workspace', name),
+    connectionDetails: (name) => ipcRenderer.invoke('cloud:connection-details', name),
+  },
+
   // ── Window controls ───────────────────────────────────
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),

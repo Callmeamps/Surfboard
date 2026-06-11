@@ -438,6 +438,45 @@ function register() {
     return output;
   });
 
+  // ── Cloud Sessions ───────────────────────────────────────
+  const cloudManager = require('./cloud-manager');
+
+  ipcMain.handle('cloud:status', (_event, provider) => {
+    return { connected: cloudManager.isConnected(provider || 'github') };
+  });
+
+  ipcMain.handle('cloud:start-device-code', async () => {
+    return cloudManager.startDeviceCodeFlow();
+  });
+
+  ipcMain.handle('cloud:poll-token', async (_event, deviceCode, interval) => {
+    return cloudManager.pollForToken(deviceCode, interval);
+  });
+
+  ipcMain.handle('cloud:disconnect', (_event, provider) => {
+    return cloudManager.disconnect(provider || 'github');
+  });
+
+  ipcMain.handle('cloud:list-workspaces', async () => {
+    return cloudManager.listCodespaces();
+  });
+
+  ipcMain.handle('cloud:start-workspace', async (_event, name) => {
+    return cloudManager.startCodespace(name);
+  });
+
+  ipcMain.handle('cloud:stop-workspace', async (_event, name) => {
+    return cloudManager.stopCodespace(name);
+  });
+
+  ipcMain.handle('cloud:delete-workspace', async (_event, name) => {
+    return cloudManager.deleteCodespace(name);
+  });
+
+  ipcMain.handle('cloud:connection-details', async (_event, name) => {
+    return cloudManager.getConnectionDetails(name);
+  });
+
   // ── Window controls ───────────────────────────────────
   ipcMain.on('window:minimize', () => {
     windowManager.minimize();

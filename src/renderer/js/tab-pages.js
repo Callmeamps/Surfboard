@@ -194,7 +194,7 @@
       case 'links':      return buildLinksPage(data?.bookmarks);
       case 'cookies':    return buildCookiesPage(data?.cookies);
       case 'ssh':         return buildSSHPage(data?.sshConnections, data?.sshState, data?.sshEnvironments);
-      case 'cloud':        return buildCloudPage();
+      case 'cloud':       return buildCloudPage(data?.cloudStatus, data?.cloudWorkspaces);
       default:           return '<div class="tp-empty"><div class="tp-empty-text">Page not found</div></div>';
     }
   }
@@ -1031,7 +1031,10 @@
   }
 
   // ── Cloud page ──────────────────────────────────────────
-  function buildCloudPage() {
+  function buildCloudPage(cloudStatus, workspaces) {
+    const connected = cloudStatus?.connected || false;
+    const ws = workspaces || [];
+
     return html`
       <div class="tp-page" data-page="cloud">
         <div class="tp-page-header">
@@ -1044,55 +1047,175 @@
             <div class="tp-cloud-provider-icon">🐙</div>
             <div class="tp-cloud-provider-info">
               <div class="tp-cloud-provider-name">GitHub Codespaces</div>
-              <div class="tp-cloud-provider-status">Not connected</div>
+              <div class="tp-cloud-provider-status">${connected ? '● Connected' : 'Not connected'}</div>
             </div>
-            <button class="tp-btn tp-btn-primary tp-cloud-connect" data-provider="github">Connect</button>
-          </div>
-
-          <div class="tp-cloud-provider-card">
-            <div class="tp-cloud-provider-icon">🟠</div>
-            <div class="tp-cloud-provider-info">
-              <div class="tp-cloud-provider-name">Gitpod</div>
-              <div class="tp-cloud-provider-status">Not connected</div>
-            </div>
-            <button class="tp-btn tp-btn-primary tp-cloud-connect" data-provider="gitpod">Connect</button>
-          </div>
-
-          <div class="tp-cloud-provider-card">
-            <div class="tp-cloud-provider-icon">🔴</div>
-            <div class="tp-cloud-provider-info">
-              <div class="tp-cloud-provider-name">Replit</div>
-              <div class="tp-cloud-provider-status">Not connected</div>
-            </div>
-            <button class="tp-btn tp-btn-primary tp-cloud-connect" data-provider="replit">Connect</button>
+            ${connected
+              ? `<button class="tp-btn tp-btn-danger tp-cloud-disconnect" data-provider="github">Disconnect</button>`
+              : `<button class="tp-btn tp-btn-primary tp-cloud-connect" data-provider="github">Connect</button>`
+            }
           </div>
         </div>
 
+        <!-- Device code flow modal -->
+        <div class="tp-cloud-device-code hidden" id="cloud-device-code">
+          <div class="tp-cloud-dc-header">Authenticate with GitHub</div>
+          <div class="tp-cloud-dc-step">1. Open <a href="#" class="tp-cloud-dc-url" id="cloud-dc-url">https://github.com/login/device</a></div>
+          <div class="tp-cloud-dc-step">2. Enter code:</div>
+          <div class="tp-cloud-dc-code" id="cloud-dc-code">------</div>
+          <div class="tp-cloud-dc-status" id="cloud-dc-status">Waiting for authorization…</div>
+          <button class="tp-btn tp-btn-secondary tp-cloud-dc-cancel" id="cloud-dc-cancel">Cancel</button>
+        </div>
+
+        <!-- Workspace list -->
         <div class="tp-cloud-workspaces" id="cloud-workspaces">
-          <div class="tp-empty">
-            <div class="tp-empty-icon">☁️</div>
-            <div class="tp-empty-text">No active workspaces</div>
-            <div class="tp-empty-hint">Connect a provider above to see your cloud environments</div>
-          </div>
+          ${ws.length === 0 ? `
+            <div class="tp-empty">
+              <div class="tp-empty-icon">☁️</div>
+              <div class="tp-empty-text">${connected ? 'No codespaces found' : 'Connect a provider to see your cloud environments'}</div>
+            </div>
+          ` : ws.map(w => `
+            <div class="tp-cloud-ws-card" data-name="${_esc(w.name)}">
+              <div class="tp-cloud-ws-header">
+                <span class="tp-cloud-ws-name">${_esc(w.displayName)}</span>
+                <span class="tp-cloud-ws-state tp-cloud-ws-state--${w.state}">${_esc(w.state)}</span>
+              </div>
+              <div class="tp-cloud-ws-meta">
+                <span>${_esc(w.repository)}</span>
+                <span>${_esc(w.machineType)}</span>
+                ${w.region ? `<span>${_esc(w.region)}</span>` : ''}
+              </div>
+              ${w.gitStatus ? `
+                <div class="tp-cloud-ws-git">
+                  ${_esc(w.gitStatus.ref)}
+                  ${w.gitStatus.hasUncommittedChanges ? ' ● uncommitted' : ''}
+                  ${w.gitStatus.hasUnpushedChanges ? ' ↑ unpushed' : ''}
+                </div>
+              ` : ''}
+              <div class="tp-cloud-ws-actions">
+                ${w.state === 'Shutdown' ? `<button class="tp-btn tp-btn-primary tp-cloud-ws-start" data-name="${_esc(w.name)}">Start</button>` : ''}
+                ${w.state === 'Running' ? `<button class="tp-btn tp-btn-secondary tp-cloud-ws-stop" data-name="${_esc(w.name)}">Stop</button>` : ''}
+                <button class="tp-btn tp-btn-danger tp-cloud-ws-delete" data-name="${_esc(w.name)}">Delete</button>
+              </div>
+            </div>
+          `).join('')}
         </div>
       </div>
     `;
   }
 
+  async function _refreshCloudPage() {
+    const page = $container?.querySelector('.tp-page[data-page="cloud"]');
+    if (!page) return;
+    const cloudAPI = window.electronAPI?.cloud;
+    let cloudStatus = { connected: false };
+    let workspaces = [];
+    try { cloudStatus = await cloudAPI?.status?.('github') || cloudStatus; } catch {}
+    if (cloudStatus.connected) {
+      try { workspaces = await cloudAPI?.listWorkspaces?.() || []; } catch {}
+    }
+    page.outerHTML = buildCloudPage(cloudStatus, workspaces);
+    bindCloudEvents();
+  }
+
   function bindCloudEvents() {
     if (!$container) return;
+    const cloudAPI = window.electronAPI?.cloud;
+    if (!cloudAPI) return;
     const main = $container.querySelector('.tp-content');
     if (!main) return;
+    let pollTimer = null;
+    let pollAbort = false;
 
-    // Connect buttons
+    // Connect button
     main.querySelectorAll('.tp-cloud-connect').forEach(btn => {
       btn.addEventListener('click', async () => {
         const provider = btn.dataset.provider;
-        // TODO: Implement OAuth/device code flow for each provider
-        // For now, show a placeholder message
-        alert(`Integration with ${provider} will be available in a future update.\n\nThis will use device code authentication to connect to your ${provider} account and list available cloud development environments.`);
+        if (provider !== 'github') { alert('Only GitHub Codespaces is supported currently.'); return; }
+        try {
+          const dc = await cloudAPI.startDeviceCode();
+          const dcBox = main.querySelector('#cloud-device-code');
+          const dcCode = main.querySelector('#cloud-dc-code');
+          const dcUrl = main.querySelector('#cloud-dc-url');
+          const dcStatus = main.querySelector('#cloud-dc-status');
+          const dcCancel = main.querySelector('#cloud-dc-cancel');
+          if (dcBox) dcBox.classList.remove('hidden');
+          if (dcCode) dcCode.textContent = dc.userCode;
+          if (dcUrl) { dcUrl.href = dc.verificationUri; dcUrl.textContent = dc.verificationUri; }
+          if (dcStatus) dcStatus.textContent = 'Waiting for authorization…';
+          btn.disabled = true;
+
+          // Open device code URL in default browser
+          try { require('electron').shell.openExternal(dc.verificationUri); } catch {}
+
+          pollAbort = false;
+          const interval = dc.interval ? dc.interval * 1000 : 5000;
+          pollTimer = setInterval(async () => {
+            if (pollAbort) { clearInterval(pollTimer); return; }
+            try {
+              const result = await cloudAPI.pollToken(dc.deviceCode, interval);
+              if (result.token) {
+                clearInterval(pollTimer);
+                if (dcBox) dcBox.classList.add('hidden');
+                await _refreshCloudPage();
+              } else if (result.retryAfter) {
+                clearInterval(pollTimer);
+                pollTimer = setInterval(arguments.callee, result.retryAfter);
+              }
+            } catch (err) {
+              clearInterval(pollTimer);
+              if (dcStatus) dcStatus.textContent = err.message;
+              setTimeout(() => { if (dcBox) dcBox.classList.add('hidden'); }, 3000);
+            }
+          }, interval);
+
+          // Cancel button
+          if (dcCancel) {
+            dcCancel.addEventListener('click', () => {
+              pollAbort = true;
+              if (pollTimer) clearInterval(pollTimer);
+              dcBox.classList.add('hidden');
+              btn.disabled = false;
+            }, { once: true });
+          }
+        } catch (err) {
+          alert('Failed to start authentication: ' + err.message);
+        }
       });
     });
+
+    // Disconnect button
+    main.querySelectorAll('.tp-cloud-disconnect').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await cloudAPI.disconnect(btn.dataset.provider);
+        await _refreshCloudPage();
+      });
+    });
+
+    // Workspace actions
+    main.querySelectorAll('.tp-cloud-ws-start').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Starting…';
+        try { await cloudAPI.startWorkspace(btn.dataset.name); } catch (err) { alert(err.message); }
+        await _refreshCloudPage();
+      });
+    });
+    main.querySelectorAll('.tp-cloud-ws-stop').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Stopping…';
+        try { await cloudAPI.stopWorkspace(btn.dataset.name); } catch (err) { alert(err.message); }
+        await _refreshCloudPage();
+      });
+    });
+    main.querySelectorAll('.tp-cloud-ws-delete').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm(`Delete codespace "${btn.dataset.name}"? This cannot be undone.`)) return;
+        btn.disabled = true; btn.textContent = 'Deleting…';
+        try { await cloudAPI.deleteWorkspace(btn.dataset.name); } catch (err) { alert(err.message); }
+        await _refreshCloudPage();
+      });
+    });
+
+    _unsubFns.push(() => { if (pollTimer) clearInterval(pollTimer); });
   }
 
   // ── Navigation ───────────────────────────────────────────
@@ -1148,7 +1271,19 @@
       } catch { /* */ }
     }
 
-    const pageData = { extensions, bookmarks, cookies, sshConnections, sshState, sshEnvironments };
+    // Fetch cloud data if on cloud page
+    let cloudStatus = { connected: false };
+    let cloudWorkspaces = [];
+    if (pageId === 'cloud') {
+      try {
+        cloudStatus = await window.electronAPI?.cloud?.status?.('github') || cloudStatus;
+        if (cloudStatus.connected) {
+          cloudWorkspaces = await window.electronAPI?.cloud?.listWorkspaces?.() || [];
+        }
+      } catch { /* */ }
+    }
+
+    const pageData = { extensions, bookmarks, cookies, sshConnections, sshState, sshEnvironments, cloudStatus, cloudWorkspaces };
 
     container.innerHTML = html`
       <div class="tab-pages">
