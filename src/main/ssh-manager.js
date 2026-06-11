@@ -10,6 +10,9 @@ const path = require('path');
 
 const DEFAULT_SSH_PORT = 22;
 const DEFAULT_CONNECT_TIMEOUT = 10000;
+const DEFAULT_RECONNECT_BASE_DELAY = 1000;
+const DEFAULT_RECONNECT_MAX_DELAY = 30000;
+const DEFAULT_RECONNECT_MAX_ATTEMPTS = 5;
 const CONNECTIONS_FILE = path.join(
   process.env.HOME || process.env.USERPROFILE,
   '.config', 'riced-chromium', 'ssh-connections.json'
@@ -23,6 +26,15 @@ class SSHSessionManager extends EventEmitter {
     this.connectionConfig = null;
     this.connected = false;
     this.connectTimeout = options.connectTimeout || DEFAULT_CONNECT_TIMEOUT;
+    this.reconnectEnabled = options.reconnectEnabled !== false;
+    this.reconnectBaseDelay = options.reconnectBaseDelay || DEFAULT_RECONNECT_BASE_DELAY;
+    this.reconnectMaxDelay = options.reconnectMaxDelay || DEFAULT_RECONNECT_MAX_DELAY;
+    this.reconnectMaxAttempts = options.reconnectMaxAttempts ?? DEFAULT_RECONNECT_MAX_ATTEMPTS;
+    this._reconnectAttempts = 0;
+    this._reconnectTimer = null;
+    this._manualDisconnect = false;
+    this._lastReconnectDelay = 0;
+    this._lastError = null;
     this.connectionsFile = options.connectionsFile || CONNECTIONS_FILE;
     this._connections = this._loadConnections();
   }
@@ -73,34 +85,62 @@ class SSHSessionManager extends EventEmitter {
    * Connect to a remote server
    */
   async connect(config) {
+    this._manualDisconnect = false;
+    this._clearReconnectTimer();
+    this._reconnectAttempts = 0;
+    this._lastError = null;
+
+    return this._connect(config);
+  }
+
+  _connect(config) {
     if (this.connected) {
-      await this.disconnect();
+      this._manualDisconnect = true;
+      return this.disconnect().then(() => this._connect(config));
     }
 
     return new Promise((resolve, reject) => {
       const conn = new Client();
       this.client = conn;
-      this.connectionConfig = config;
+      this.connectionConfig = { ...config };
+      let settled = false;
+      let streamOpened = false;
+
+      const fail = (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        this.connected = false;
+        this.stream = null;
+        this._lastError = err.message || String(err);
+        this.emit('status', { ...this.getState(), error: this._lastError });
+        reject(err);
+      };
 
       const timeout = setTimeout(() => {
         conn.end();
-        reject(new Error('Connection timeout'));
+        fail(new Error('Connection timeout'));
       }, this.connectTimeout);
 
       conn.on('ready', () => {
         clearTimeout(timeout);
         this.connected = true;
+        this._reconnectAttempts = 0;
+        this._lastError = null;
         this.emit('status', this.getState());
 
         // Open a shell session
         conn.shell({ term: 'xterm-256color' }, (err, stream) => {
           if (err) {
             this.connected = false;
-            this.emit('status', { ...this.getState(), error: err.message });
-            reject(err);
+            this.stream = null;
+            this._lastError = err.message;
+            this.emit('status', { ...this.getState(), error: this._lastError });
+            fail(err);
             return;
           }
 
+          streamOpened = true;
           this.stream = stream;
 
           stream.on('close', () => {
@@ -108,6 +148,7 @@ class SSHSessionManager extends EventEmitter {
             this.stream = null;
             this.emit('status', this.getState());
             this.emit('output', { stream: 'system', text: '[ssh] Connection closed\n' });
+            this._handleConnectionLost('Connection closed');
           });
 
           stream.on('data', (data) => {
@@ -118,20 +159,31 @@ class SSHSessionManager extends EventEmitter {
             this.emit('output', { stream: 'stderr', text: data.toString('utf8') });
           });
 
-          resolve(this.getState());
+          if (!settled) {
+            settled = true;
+            resolve(this.getState());
+          }
         });
       });
 
       conn.on('error', (err) => {
-        clearTimeout(timeout);
+        if (!streamOpened && !this.connected) {
+          fail(err);
+          return;
+        }
         this.connected = false;
-        this.emit('status', { ...this.getState(), error: err.message });
-        reject(err);
+        this.stream = null;
+        this._lastError = err.message;
+        this.emit('status', { ...this.getState(), error: this._lastError });
+        this._handleConnectionLost(err.message);
       });
 
       conn.on('close', () => {
+        if (!streamOpened && !this.connected) return;
         this.connected = false;
+        this.stream = null;
         this.emit('status', this.getState());
+        this._handleConnectionLost('Connection closed');
       });
 
       // Build connect config
@@ -150,7 +202,7 @@ class SSHSessionManager extends EventEmitter {
             connectConfig.passphrase = config.passphrase;
           }
         } catch (err) {
-          reject(new Error(`Failed to read private key: ${err.message}`));
+          fail(new Error(`Failed to read private key: ${err.message}`));
           return;
         }
       } else if (config.password) {
@@ -161,10 +213,59 @@ class SSHSessionManager extends EventEmitter {
     });
   }
 
+  _clearReconnectTimer() {
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
+  }
+
+  _handleConnectionLost(reason) {
+    if (this._manualDisconnect || !this.reconnectEnabled || !this.connectionConfig) {
+      this.emit('status', this.getState());
+      return;
+    }
+
+    if (this._reconnectAttempts >= this.reconnectMaxAttempts) {
+      this._lastError = `Reconnect failed after ${this.reconnectMaxAttempts} attempts: ${reason}`;
+      this.emit('status', { ...this.getState(), error: this._lastError });
+      return;
+    }
+
+    if (this._reconnectTimer) return;
+
+    const delay = Math.min(
+      this.reconnectMaxDelay,
+      this.reconnectBaseDelay * (2 ** this._reconnectAttempts)
+    );
+    this._lastReconnectDelay = delay;
+    this._reconnectAttempts += 1;
+    this.emit('status', {
+      ...this.getState(),
+      reconnecting: true,
+      reconnectAttempt: this._reconnectAttempts,
+      reconnectMaxAttempts: this.reconnectMaxAttempts,
+      reconnectDelay: delay,
+      lastError: reason,
+    });
+
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
+      this.emit('output', { stream: 'system', text: `[ssh] Reconnecting (${this._reconnectAttempts}/${this.reconnectMaxAttempts})…\n` });
+      this._connect(this.connectionConfig).catch((err) => {
+        this._lastError = err.message;
+        this._handleConnectionLost(err.message);
+      });
+    }, delay);
+  }
+
   /**
    * Disconnect from current session
    */
   async disconnect() {
+    this._manualDisconnect = true;
+    this._clearReconnectTimer();
+    this._reconnectAttempts = 0;
     if (this.stream) {
       this.stream.close();
       this.stream = null;
@@ -210,6 +311,12 @@ class SSHSessionManager extends EventEmitter {
       host: this.connectionConfig?.host || null,
       port: this.connectionConfig?.port || DEFAULT_SSH_PORT,
       username: this.connectionConfig?.username || null,
+      reconnectEnabled: this.reconnectEnabled,
+      reconnecting: Boolean(this._reconnectTimer),
+      reconnectAttempt: this._reconnectAttempts,
+      reconnectMaxAttempts: this.reconnectMaxAttempts,
+      reconnectDelay: this._reconnectTimer ? this._lastReconnectDelay : 0,
+      lastError: this._lastError || null,
     };
   }
 
@@ -251,5 +358,9 @@ module.exports = {
   SSHSessionManager,
   createSSHSessionManager,
   DEFAULT_SSH_PORT,
+  DEFAULT_CONNECT_TIMEOUT,
+  DEFAULT_RECONNECT_BASE_DELAY,
+  DEFAULT_RECONNECT_MAX_DELAY,
+  DEFAULT_RECONNECT_MAX_ATTEMPTS,
   CONNECTIONS_FILE,
 };

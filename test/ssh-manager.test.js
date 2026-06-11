@@ -2,16 +2,54 @@
  * SSH Manager tests
  * Tests connection management, command sending, and state tracking.
  */
+jest.mock('ssh2', () => ({ Client: jest.fn() }));
+
 const { SSHSessionManager } = require('../src/main/ssh-manager');
+const { Client } = require('ssh2');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+
+function createFakeClient() {
+  const handlers = {};
+  const streamHandlers = {};
+  const stderrHandlers = {};
+  const stream = {
+    on: jest.fn((event, cb) => { streamHandlers[event] = cb; return stream; }),
+    close: jest.fn(() => streamHandlers.close?.()),
+    write: jest.fn(),
+    stderr: {
+      on: jest.fn((event, cb) => { stderrHandlers[event] = cb; return stream; }),
+    },
+  };
+  const client = {
+    on: jest.fn((event, cb) => { handlers[event] = cb; return client; }),
+    connect: jest.fn(() => client),
+    end: jest.fn(() => {
+      handlers.close?.();
+      return client;
+    }),
+    shell: jest.fn((_opts, cb) => {
+      process.nextTick(() => cb(null, stream));
+      return client;
+    }),
+    handlers,
+    stream,
+    streamHandlers,
+    ready: () => handlers.ready?.(),
+    error: (err) => handlers.error?.(err),
+    close: () => handlers.close?.(),
+  };
+  Client.mockImplementation(() => client);
+  return client;
+}
 
 describe('SSHSessionManager', () => {
   let manager;
   let tempDir;
 
   beforeEach(() => {
+    Client.mockReset();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ssh-test-'));
     manager = new SSHSessionManager({
       connectionsFile: path.join(tempDir, 'connections.json'),
@@ -94,6 +132,88 @@ describe('SSHSessionManager', () => {
     expect(result.ok).toBe(false);
     // Returns either 'Not connected' or 'Empty command' depending on state
     expect(result.error).toBeDefined();
+  });
+
+  test('connect opens shell and tracks state', async () => {
+    const client = createFakeClient();
+    const connectPromise = manager.connect({ host: 'example.com', port: 2222, username: 'user' });
+    client.ready();
+    await Promise.resolve();
+
+    const state = await connectPromise;
+
+    expect(state.connected).toBe(true);
+    expect(manager.getState()).toMatchObject({ connected: true, host: 'example.com', port: 2222, username: 'user' });
+    expect(client.shell).toHaveBeenCalledWith({ term: 'xterm-256color' }, expect.any(Function));
+  });
+
+  test('stream close schedules reconnect with exponential backoff', async () => {
+    manager = new SSHSessionManager({
+      connectionsFile: path.join(tempDir, 'connections.json'),
+      reconnectBaseDelay: 10,
+      reconnectMaxAttempts: 3,
+    });
+    const first = createFakeClient();
+    const statuses = [];
+    manager.on('status', status => statuses.push(status));
+
+    const connectPromise = manager.connect({ host: 'example.com', username: 'user' });
+    first.ready();
+    await connectPromise;
+
+    first.streamHandlers.close();
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(statuses.at(-1)).toMatchObject({
+      connected: false,
+      reconnecting: true,
+      reconnectAttempt: 1,
+      reconnectDelay: 10,
+    });
+    expect(Client).toHaveBeenCalledTimes(2);
+
+    const second = Client.mock.results[1].value;
+    second.ready();
+    await Promise.resolve();
+    second.streamHandlers.close();
+    await new Promise(resolve => setTimeout(resolve, 30));
+
+    expect(statuses.at(-1)).toMatchObject({
+      reconnecting: true,
+      reconnectAttempt: 1,
+      reconnectDelay: 10,
+    });
+    expect(Client).toHaveBeenCalledTimes(3);
+  });
+
+  test('connection loss uses exponential reconnect delay', () => {
+    manager.connectionConfig = { host: 'example.com', username: 'user' };
+    manager.reconnectBaseDelay = 10;
+    manager.reconnectMaxAttempts = 3;
+    const statuses = [];
+    manager.on('status', status => statuses.push(status));
+
+    manager._handleConnectionLost('first drop');
+    expect(statuses.at(-1)).toMatchObject({ reconnectAttempt: 1, reconnectDelay: 10 });
+
+    manager._clearReconnectTimer();
+    manager._handleConnectionLost('second drop');
+    expect(statuses.at(-1)).toMatchObject({ reconnectAttempt: 2, reconnectDelay: 20 });
+  });
+  test('manual disconnect cancels pending reconnect', async () => {
+    const client = createFakeClient();
+    const connectPromise = manager.connect({ host: 'example.com', username: 'user' });
+    client.ready();
+    await connectPromise;
+
+    client.streamHandlers.close();
+    expect(manager.getState().reconnecting).toBe(true);
+
+    await manager.disconnect();
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(manager.getState().reconnecting).toBe(false);
+    expect(Client).toHaveBeenCalledTimes(1);
   });
 
   test('disconnect when not connected returns ok', async () => {
