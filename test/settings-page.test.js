@@ -1,3 +1,5 @@
+require('../src/renderer/js/shortcuts.js');
+
 /**
  * Settings Page — unit tests
  */

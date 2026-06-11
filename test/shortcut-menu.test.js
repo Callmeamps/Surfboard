@@ -1,3 +1,5 @@
+require('../src/renderer/js/shortcuts.js');
+
 /**
  * Shortcut Menu overlay tests
  * Tests rendering, keyboard shortcut display, toggle, and dismiss behavior.
@@ -126,6 +128,28 @@ describe('Shortcut Menu', () => {
     body.appendChild(row);
     expect(row.querySelector('span').textContent).toBe('New tab');
     expect(row.querySelectorAll('kbd').length).toBe(2);
+  });
+
+  test('shared shortcut data renders dropdown list', () => {
+    const list = document.createElement('div');
+    list.className = 'shortcut-list';
+    window.ShortcutData.renderList(list);
+
+    const rows = list.querySelectorAll('.shortcut-row');
+    expect(window.ShortcutData.groups.length).toBe(6);
+    expect(rows.length).toBeGreaterThan(10);
+    expect(rows[0].querySelector('span').textContent).toBe('Address bar');
+    expect(Array.from(rows[0].querySelectorAll('kbd')).map(kbd => kbd.textContent).join(' ')).toBe('Ctrl L');
+  });
+
+  test('shared shortcut data renders overlay groups', () => {
+    const list = document.createElement('div');
+    list.className = 'shortcut-list';
+    window.ShortcutData.renderList(list);
+
+    expect(list.querySelectorAll('.shortcut-group-title').length).toBe(window.ShortcutData.groups.length);
+    expect(list.textContent).toContain('Cloud Sessions');
+    expect(list.textContent).toContain('Shortcuts');
   });
 
   test('dialog has two-column grid layout', () => {

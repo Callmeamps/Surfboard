@@ -395,46 +395,26 @@
   }
 
   function buildSectionShortcuts() {
-    const shortcuts = [
-      { category: 'Navigation', items: [
-        { label: 'New Tab', keys: ['Ctrl', 'T'] },
-        { label: 'Close Tab', keys: ['Ctrl', 'W'] },
-        { label: 'Reopen Closed Tab', keys: ['Ctrl', 'Shift', 'T'] },
-        { label: 'Next Tab', keys: ['Ctrl', 'Tab'] },
-        { label: 'Previous Tab', keys: ['Ctrl', 'Shift', 'Tab'] },
-        { label: 'Go Back', keys: ['Alt', '←'] },
-        { label: 'Go Forward', keys: ['Alt', '→'] },
-      ]},
-      { category: 'Interface', items: [
-        { label: 'Address Bar', keys: ['Ctrl', 'L'] },
-        { label: 'Toggle Sidebar', keys: ['Ctrl', 'B'] },
-        { label: 'Settings', keys: ['Ctrl', ','] },
-        { label: 'History', keys: ['Ctrl', 'H'] },
-      ]},
-      { category: 'Tools', items: [
-        { label: 'AI Sidecar', keys: ['Ctrl', 'Shift', 'A'] },
-        { label: 'Shell', keys: ['Ctrl', 'Shift', 'S'] },
-        { label: 'Edit Mode', keys: ['Ctrl', 'Shift', 'E'] },
-        { label: 'Inspect Mode', keys: ['Ctrl', 'Shift', 'I'] },
-        { label: 'Actions', keys: ['Ctrl', 'Shift', 'K'] },
-        { label: 'Data', keys: ['Ctrl', 'Shift', 'D'] },
-        { label: 'Workflows', keys: ['Ctrl', 'Shift', 'R'] },
-      ]},
-    ];
+    const shortcutGroups = window.ShortcutData?.groups || [];
+    const escapeHtml = window.ShortcutData?.escapeHtml || ((value) => String(value).replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char])));
+    const groupedShortcuts = shortcutGroups.map((group) => ({
+      category: group.title,
+      items: group.items.map(([label, ...keys]) => ({ label, keys })),
+    }));
 
     return html`
       <div class="sp-section" data-section="shortcuts">
         <h2 class="sp-section-title">Keyboard Shortcuts</h2>
         
-        ${shortcuts.map(cat => `
+        ${groupedShortcuts.map(cat => `
           <div class="sp-group">
-            <div class="sp-group-title">${cat.category}</div>
+            <div class="sp-group-title">${escapeHtml(cat.category)}</div>
             <div class="sp-shortcuts-list">
               ${cat.items.map(s => `
                 <div class="sp-shortcut-row">
-                  <span class="sp-shortcut-label">${s.label}</span>
+                  <span class="sp-shortcut-label">${escapeHtml(s.label)}</span>
                   <span class="sp-shortcut-keys">
-                    ${s.keys.map(k => `<kbd class="sp-key">${k}</kbd>`).join('<span class="sp-key-sep">+</span>')}
+                    ${s.keys.map(k => `<kbd class="sp-key">${escapeHtml(k)}</kbd>`).join('<span class="sp-key-sep">+</span>')}
                   </span>
                 </div>
               `).join('')}

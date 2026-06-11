@@ -596,53 +596,7 @@
   function _openAiConfig() { window.SettingsModule.openAiConfig(); }
 
   // ── Shortcut Menu ────────────────────────────────────────
-  const SHORTCUT_DATA = [
-    { title: 'Navigation', items: [
-      ['Address bar', 'Ctrl', 'L'],
-      ['New tab', 'Ctrl', 'T'],
-      ['Close tab', 'Ctrl', 'W'],
-      ['Next tab', 'Ctrl', 'Tab'],
-      ['Prev tab', 'Ctrl', 'Shift', 'Tab'],
-      ['Back', 'Alt', '←'],
-      ['Forward', 'Alt', '→'],
-    ]},
-    { title: 'Sidecar & Panels', items: [
-      ['AI sidecar', 'Ctrl', 'Shift', 'A'],
-      ['Shell sidecar', 'Ctrl', 'Shift', 'S'],
-      ['Sidebar', 'Ctrl', 'B'],
-      ['History', 'Ctrl', 'H'],
-      ['Settings', 'Ctrl', ','],
-    ]},
-    { title: 'Feature Platform', items: [
-      ['Cycle modes', 'Ctrl', 'Shift', 'M'],
-      ['Edit mode', 'Ctrl', 'Shift', 'E'],
-      ['Inspect mode', 'Ctrl', 'Shift', 'I'],
-      ['Action mode', 'Ctrl', 'Shift', 'K'],
-      ['Workflow mode', 'Ctrl', 'Shift', 'R'],
-      ['Data mode', 'Ctrl', 'Shift', 'D'],
-    ]},
-    { title: 'Canvas Pages', items: [
-      ['Bash', 'Ctrl', 'Shift', 'X'],
-      ['History', 'Ctrl', 'Shift', 'H'],
-      ['Bookmarks', 'Ctrl', 'Shift', 'B'],
-      ['Agents', 'Ctrl', 'Shift', 'G'],
-      ['Activity', 'Ctrl', 'Shift', 'J'],
-    ]},
-    { title: 'Tab Pages', items: [
-      ['Extensions', 'Alt', 'Shift', 'X'],
-      ['Agents', 'Alt', 'Shift', 'G'],
-      ['Shell', 'Alt', 'Shift', 'L'],
-      ['Workflows', 'Alt', 'Shift', 'F'],
-      ['Links', 'Alt', 'Shift', 'K'],
-      ['Cookies', 'Alt', 'Shift', 'C'],
-      ['SSH Sessions', 'Alt', 'Shift', 'S'],
-      ['Cloud Sessions', 'Alt', 'Shift', 'O'],
-    ]},
-    { title: 'Dev', items: [
-      ['DevTools', 'F12'],
-      ['Shortcuts', '?'],
-    ]},
-  ];
+  const SHORTCUT_DATA = window.ShortcutData?.groups || [];
   let _shortcutMenuOpen = false;
   function _toggleShortcutMenu() {
     const $el = document.getElementById('shortcut-overlay');
