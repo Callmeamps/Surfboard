@@ -207,4 +207,32 @@ describe('tab-manager', () => {
 
     expect(tabManager.getGroups()).toHaveLength(0);
   });
+
+  test('setGroupColor() updates group color', () => {
+    const group = tabManager.createGroup('Work');
+    expect(group.color).toBeNull();
+
+    const result = tabManager.setGroupColor(group.id, '#1a73e8');
+    expect(result.color).toBe('#1a73e8');
+
+    const groups = tabManager.getGroups();
+    expect(groups[0].color).toBe('#1a73e8');
+  });
+
+  test('setGroupColor() clears color with null', () => {
+    const group = tabManager.createGroup('Work', '#d93025');
+    expect(group.color).toBe('#d93025');
+
+    const result = tabManager.setGroupColor(group.id, null);
+    expect(result.color).toBeNull();
+  });
+
+  test('setGroupColor() returns null for invalid groupId', () => {
+    expect(tabManager.setGroupColor('nonexistent', '#fff')).toBeNull();
+  });
+
+  test('createGroup() accepts color parameter', () => {
+    const group = tabManager.createGroup('Dev', '#188038');
+    expect(group.color).toBe('#188038');
+  });
 });

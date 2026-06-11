@@ -266,6 +266,58 @@ describe('loadExtension', () => {
       error: 'Invalid extension',
     });
   });
+
+  test('extracts popupUrl from manifest action.default_popup (MV3)', async () => {
+    const extInfo = { id: 'mv3-ext', name: 'MV3 Ext' };
+    mockLoadExtension.mockResolvedValue(extInfo);
+    mockReadFile.mockResolvedValue(JSON.stringify({
+      name: 'MV3 Ext', version: '1.0',
+      action: { default_popup: 'popup.html' },
+    }));
+
+    const result = await extensionLoader.loadExtension('/fake/dir/mv3-ext');
+
+    expect(result.popupUrl).toBe('chrome-extension://mv3-ext/popup.html');
+  });
+
+  test('extracts popupUrl from manifest browser_action.default_popup (MV2 fallback)', async () => {
+    const extInfo = { id: 'mv2-ext', name: 'MV2 Ext' };
+    mockLoadExtension.mockResolvedValue(extInfo);
+    mockReadFile.mockResolvedValue(JSON.stringify({
+      name: 'MV2 Ext', version: '1.0',
+      browser_action: { default_popup: 'popup.html' },
+    }));
+
+    const result = await extensionLoader.loadExtension('/fake/dir/mv2-ext');
+
+    expect(result.popupUrl).toBe('chrome-extension://mv2-ext/popup.html');
+  });
+
+  test('extracts optionsUrl from manifest options_page', async () => {
+    const extInfo = { id: 'opts-ext', name: 'Opts Ext' };
+    mockLoadExtension.mockResolvedValue(extInfo);
+    mockReadFile.mockResolvedValue(JSON.stringify({
+      name: 'Opts Ext', version: '1.0',
+      options_page: 'options.html',
+    }));
+
+    const result = await extensionLoader.loadExtension('/fake/dir/opts-ext');
+
+    expect(result.optionsUrl).toBe('chrome-extension://opts-ext/options.html');
+  });
+
+  test('extracts optionsUrl from manifest options_ui.page', async () => {
+    const extInfo = { id: 'optsui-ext', name: 'OptsUI Ext' };
+    mockLoadExtension.mockResolvedValue(extInfo);
+    mockReadFile.mockResolvedValue(JSON.stringify({
+      name: 'OptsUI Ext', version: '1.0',
+      options_ui: { page: 'options.html' },
+    }));
+
+    const result = await extensionLoader.loadExtension('/fake/dir/optsui-ext');
+
+    expect(result.optionsUrl).toBe('chrome-extension://optsui-ext/options.html');
+  });
 });
 
 // ─── unloadExtension ───────────────────────────────────────────────

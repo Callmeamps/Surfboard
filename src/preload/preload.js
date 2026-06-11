@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // ── Tab Groups ───────────────────────────────────────
     groups: () => ipcRenderer.invoke('tabs:groups:list'),
     createGroup: (title) => ipcRenderer.invoke('tabs:groups:create', title),
+    setGroupColor: (groupId, color) => ipcRenderer.invoke('tabs:groups:color', groupId, color),
     assignToGroup: (tabId, groupId) => ipcRenderer.invoke('tabs:groups:assign', tabId, groupId),
     removeFromGroup: (tabId) => ipcRenderer.invoke('tabs:groups:remove', tabId),
     toggleGroupCollapse: (groupId) => ipcRenderer.invoke('tabs:groups:collapse', groupId),

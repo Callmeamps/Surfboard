@@ -583,6 +583,33 @@ html, body {
 .ext-toggle input:checked + .toggle-track { background: var(--accent); }
 .ext-toggle input:checked + .toggle-track::after { transform: translateX(14px); }
 
+/* Extension popup in sidecar */
+#sidecar-ext-panel { position: relative; height: 100%; }
+#ext-popup-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 0; font-size: 12px; font-weight: 600; color: var(--text);
+}
+#ext-popup-frame {
+  width: 100%; height: calc(100% - 32px); border: 1px solid var(--border);
+  border-radius: 6px; background: #fff;
+}
+#ext-popup-frame.hidden { display: none; }
+#ext-popup-empty {
+  display: flex; align-items: center; justify-content: center;
+  height: 200px; color: var(--text-faint); font-size: 13px; text-align: center;
+}
+#ext-popup-empty.hidden { display: none; }
+
+/* Badge on extensions sidebar button */
+.ext-badge {
+  position: absolute; top: 2px; right: 2px;
+  min-width: 14px; height: 14px; padding: 0 3px;
+  background: var(--accent); color: #fff; font-size: 9px; font-weight: 700;
+  border-radius: 7px; display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+#rsidebar-extensions { position: relative; }
+
 /* ── Settings Overlay ──────────────────────────────────── */
 .settings-overlay { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
 .settings-overlay.hidden { display: none; }
@@ -749,6 +776,11 @@ html, body {
   user-select: none;
   flex-shrink: 0;
 }
+.tab-group-header[style*="--group-color"] {
+  background: color-mix(in srgb, var(--group-color) 20%, transparent);
+  border-left: 3px solid var(--group-color);
+  padding-left: 5px;
+}
 .tab-group-header:hover { background: var(--bg-hover); color: var(--text); }
 .tab-group-header .group-toggle {
   font-size: 8px; width: 10px; text-align: center;
@@ -763,6 +795,12 @@ html, body {
 .tab.grouped {
   margin-left: 12px;
   width: calc(100% - 14px);
+}
+.tab.grouped[style*="--group-color"] {
+  border-left: 3px solid var(--group-color);
+  padding-left: 5px;
+  margin-left: 9px;
+  width: calc(100% - 17px);
 }
 
 /* ── Tab Context Menu ──────────────────────────────────── */

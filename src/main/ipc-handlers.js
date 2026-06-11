@@ -120,6 +120,10 @@ function register() {
     return tabManager.createGroup(title);
   });
 
+  ipcMain.handle('tabs:groups:color', (_event, groupId, color) => {
+    return tabManager.setGroupColor(groupId, color);
+  });
+
   ipcMain.handle('tabs:groups:assign', (_event, tabId, groupId) => {
     return tabManager.assignToGroup(tabId, groupId);
   });

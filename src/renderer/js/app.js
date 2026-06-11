@@ -46,6 +46,12 @@
   const $sidecarClose  = document.getElementById('sidecar-close-btn');
   const $sidecarAiPanel = document.getElementById('sidecar-ai-panel');
   const $sidecarShellPanel = document.getElementById('sidecar-shell-panel');
+  const $sidecarExtPanel = document.getElementById('sidecar-ext-panel');
+  const $sidecarModeExt = document.getElementById('sidecar-mode-ext');
+  const $extPopupFrame = document.getElementById('ext-popup-frame');
+  const $extPopupName = document.getElementById('ext-popup-name');
+  const $extPopupEmpty = document.getElementById('ext-popup-empty');
+  const $extPopupClose = document.getElementById('ext-popup-close');
   const $chatInput     = document.getElementById('chat-input');
   const $chatSend      = document.getElementById('chat-send');
   const $chatMessages  = document.getElementById('chat-messages');
@@ -283,17 +289,21 @@
   }
 
   function _setShellMode(mode) {
-    sidecarMode = mode === 'shell' ? 'shell' : 'ai';
+    sidecarMode = mode === 'shell' ? 'shell' : mode === 'extension' ? 'extension' : 'ai';
     $sidecarModeAi?.classList.toggle('active', sidecarMode === 'ai');
     $sidecarModeShell?.classList.toggle('active', sidecarMode === 'shell');
+    $sidecarModeExt?.classList.toggle('active', sidecarMode === 'extension');
     $sidecarAiPanel?.classList.toggle('hidden', sidecarMode !== 'ai');
     $sidecarShellPanel?.classList.toggle('hidden', sidecarMode !== 'shell');
+    $sidecarExtPanel?.classList.toggle('hidden', sidecarMode !== 'extension');
     $rsidebarAi?.classList.toggle('active', sidecarMode === 'ai' && !$sidecar.classList.contains('sidecar-hidden'));
     $rsidebarShell?.classList.toggle('active', sidecarMode === 'shell' && !$sidecar.classList.contains('sidecar-hidden'));
     if (!$sidecar.classList.contains('sidecar-hidden')) {
       if (sidecarMode === 'shell') {
         _ensureShellStarted();
         $shellInput?.focus();
+      } else if (sidecarMode === 'extension') {
+        // popup already loaded by _showExtensionPopup
       } else {
         $chatInput?.focus();
       }
@@ -321,6 +331,15 @@
       return;
     }
     _hideSidecar();
+  }
+
+  function _showExtensionPopup(name, url) {
+    if (!url) return;
+    $extPopupName.textContent = name || 'Extension Popup';
+    $extPopupEmpty.classList.add('hidden');
+    $extPopupFrame.classList.remove('hidden');
+    $extPopupFrame.src = url;
+    _showSidecar('extension');
   }
 
   function _sendShellCommand() {
@@ -370,7 +389,15 @@
           el.innerHTML = `${iconHtml}<div class="ext-info"><div class="ext-name">${ex.name || ex.id}</div><div class="ext-desc">${ex.description || ''}</div>${linksHtml.length ? `<div class="ext-links">${linksHtml.join('')}</div>` : ''}</div><label class="ext-toggle"><input type="checkbox" ${ex.enabled ? 'checked' : ''} data-ext-id="${ex.id}"><span class="toggle-track"></span></label>`;
           el.querySelector('input').addEventListener('change', (e) => { e.target.checked ? _ext.load(ex.path).catch(() => {}) : _ext.unload(ex.id).catch(() => {}); });
           el.querySelectorAll('.ext-link').forEach(link => {
-            link.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); _tabs.create(link.dataset.url); });
+            link.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (link.dataset.url && link.textContent === 'Popup') {
+                _showExtensionPopup(ex.name, link.dataset.url);
+              } else {
+                _tabs.create(link.dataset.url);
+              }
+            });
           });
           $extList.appendChild(el);
         });
@@ -385,11 +412,23 @@
           btn.title = ex.name || ex.id;
           btn.innerHTML = `<img src="${ex.icon}" alt="" style="width:16px;height:16px;border-radius:2px"/>`;
           btn.addEventListener('click', () => {
-            if (ex.popupUrl) _tabs.create(ex.popupUrl);
+            if (ex.popupUrl) _showExtensionPopup(ex.name, ex.popupUrl);
             else _toggleExt();
           });
           $extIcons.appendChild(btn);
         });
+      }
+      // Badge count on extensions button
+      const $rsidebarExt = document.getElementById('rsidebar-extensions');
+      if ($rsidebarExt) {
+        const existing = $rsidebarExt.querySelector('.ext-badge');
+        if (existing) existing.remove();
+        if (exts.length > 0) {
+          const badge = document.createElement('span');
+          badge.className = 'ext-badge';
+          badge.textContent = exts.length;
+          $rsidebarExt.appendChild(badge);
+        }
       }
     } catch { /* */ }
   }
@@ -1037,6 +1076,13 @@
     try {
       $sidecarModeAi?.addEventListener('click', () => _setShellMode('ai'));
       $sidecarModeShell?.addEventListener('click', () => _setShellMode('shell'));
+      $sidecarModeExt?.addEventListener('click', () => _setShellMode('extension'));
+      $extPopupClose?.addEventListener('click', () => {
+        $extPopupFrame.src = '';
+        $extPopupFrame.classList.add('hidden');
+        $extPopupEmpty.classList.remove('hidden');
+        _setShellMode('ai');
+      });
     } catch (e) { console.warn('[init] sidecar modes:', e.message); }
 
     // Right sidebar buttons — all use ?. in case elements are missing

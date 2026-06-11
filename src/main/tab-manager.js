@@ -121,11 +121,12 @@ function getActiveId() {
 
 // ── Tab Groups ──────────────────────────────────────────
 
-function createGroup(title = 'Group') {
+function createGroup(title = 'Group', color = null) {
   const groupId = generateGroupId();
   const group = {
     id: groupId,
     title,
+    color: color || null,
     collapsed: false,
     tabIds: [],
   };
@@ -195,6 +196,14 @@ function deleteGroup(groupId) {
   return true;
 }
 
+function setGroupColor(groupId, color) {
+  const group = groups.get(groupId);
+  if (!group) return null;
+  group.color = color || null;
+  broadcastUpdate();
+  return { ...group };
+}
+
 function getGroups() {
   return [...groups.values()].map(g => ({ ...g }));
 }
@@ -213,6 +222,7 @@ module.exports = {
   getActiveId,
   setPostUpdateHook,
   createGroup,
+  setGroupColor,
   assignToGroup,
   removeFromGroup,
   toggleGroupCollapse,

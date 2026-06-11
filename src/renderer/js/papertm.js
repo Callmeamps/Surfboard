@@ -209,6 +209,19 @@
     }
   }
 
+  const GROUP_COLORS = [
+    { name: 'None', value: null },
+    { name: 'Grey', value: '#5f6368' },
+    { name: 'Blue', value: '#1a73e8' },
+    { name: 'Red', value: '#d93025' },
+    { name: 'Yellow', value: '#f9ab00' },
+    { name: 'Green', value: '#188038' },
+    { name: 'Pink', value: '#d01884' },
+    { name: 'Purple', value: '#9334e6' },
+    { name: 'Cyan', value: '#007b83' },
+    { name: 'Orange', value: '#e8710a' },
+  ];
+
   function _buildGroupHeader(groupId) {
     const group = _groups.get(groupId);
     if (!group) return null;
@@ -216,6 +229,9 @@
     const el = document.createElement('div');
     el.className = 'tab-group-header' + (group.collapsed ? ' collapsed' : '');
     el.dataset.groupId = groupId;
+    if (group.color) {
+      el.style.setProperty('--group-color', group.color);
+    }
 
     const toggle = document.createElement('span');
     toggle.className = 'group-toggle';
@@ -237,6 +253,12 @@
       _deps.tabsIPC.toggleGroupCollapse?.(groupId);
     });
 
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      _showGroupColorMenu(e, groupId);
+    });
+
     return el;
   }
 
@@ -248,7 +270,13 @@
     if (tab.groupId) classes.push('grouped');
     el.className = classes.join(' ');
     el.dataset.tabId = tab.id;
-    if (tab.groupId) el.dataset.groupId = tab.groupId;
+    if (tab.groupId) {
+      el.dataset.groupId = tab.groupId;
+      const grp = _groups.get(tab.groupId);
+      if (grp?.color) {
+        el.style.setProperty('--group-color', grp.color);
+      }
+    }
 
     const img = document.createElement('img');
     img.className = 'tab-favicon'; img.width = 16; img.height = 16; img.alt = '';
@@ -271,6 +299,44 @@
     close.className = 'tab-close no-drag'; close.textContent = '✕'; close.setAttribute('aria-label', 'Close tab');
     el.appendChild(close);
     return el;
+  }
+
+  function _showGroupColorMenu(e, groupId) {
+    const existing = document.querySelector('.tab-contextmenu');
+    if (existing) existing.remove();
+
+    const menu = document.createElement('div');
+    menu.className = 'tab-contextmenu';
+    menu.style.cssText = `position:fixed;top:${e.clientY}px;left:${e.clientX}px;z-index:500;`;
+
+    const group = _groups.get(groupId);
+
+    GROUP_COLORS.forEach(c => {
+      const item = document.createElement('div');
+      item.className = 'tab-ctx-item';
+      const swatch = document.createElement('span');
+      swatch.className = 'group-color-swatch';
+      swatch.style.cssText = `display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:8px;border:1px solid rgba(255,255,255,0.2);background:${c.value || 'transparent'};`;
+      if (!c.value) swatch.style.border = '1px dashed rgba(255,255,255,0.3)';
+      item.appendChild(swatch);
+      item.appendChild(document.createTextNode(c.name));
+      if (group?.color === c.value) item.classList.add('active');
+      item.addEventListener('click', () => {
+        menu.remove();
+        _deps.tabsIPC.setGroupColor?.(groupId, c.value);
+      });
+      menu.appendChild(item);
+    });
+
+    document.body.appendChild(menu);
+
+    const close = (ev) => {
+      if (!menu.contains(ev.target)) {
+        menu.remove();
+        document.removeEventListener('mousedown', close);
+      }
+    };
+    setTimeout(() => document.addEventListener('mousedown', close), 0);
   }
 
   function _showTabContextMenu(e, tab) {

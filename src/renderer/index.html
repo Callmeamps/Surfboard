@@ -317,6 +317,7 @@
           <div id="sidecar-mode-toggle" role="tablist" aria-label="Sidecar mode">
             <button id="sidecar-mode-ai" class="sidecar-mode-btn active" type="button">AI</button>
             <button id="sidecar-mode-shell" class="sidecar-mode-btn" type="button">Shell</button>
+            <button id="sidecar-mode-ext" class="sidecar-mode-btn" type="button">Ext</button>
           </div>
           <span id="shell-status" class="shell-status">idle</span>
           <button id="sidecar-config-btn" class="sidecar-hdr-btn" title="AI Configuration">
@@ -361,6 +362,14 @@
             <button id="shell-stop" class="sidecar-hdr-btn" type="button">Stop</button>
           </div>
           <div id="shell-hint">Allowlisted host commands only. Output streams from bash.</div>
+        </div>
+        <div id="sidecar-ext-panel" class="sidecar-panel hidden">
+          <div id="ext-popup-header">
+            <span id="ext-popup-name">Extension Popup</span>
+            <button id="ext-popup-close" class="sidecar-hdr-btn" title="Close popup">✕</button>
+          </div>
+          <iframe id="ext-popup-frame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" frameborder="0"></iframe>
+          <div id="ext-popup-empty">Click an extension icon or popup link to preview here.</div>
         </div>
       </div>
     </div>
