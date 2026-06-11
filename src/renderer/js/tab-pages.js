@@ -16,6 +16,7 @@
     { id: 'links', icon: '🔗', label: 'Links' },
     { id: 'cookies', icon: '🍪', label: 'Cookies' },
     { id: 'ssh', icon: '🔐', label: 'SSH' },
+    { id: 'cloud', icon: '☁️', label: 'Cloud' },
   ];
 
   let $container = null;
@@ -193,6 +194,7 @@
       case 'links':      return buildLinksPage(data?.bookmarks);
       case 'cookies':    return buildCookiesPage(data?.cookies);
       case 'ssh':         return buildSSHPage(data?.sshConnections, data?.sshState, data?.sshEnvironments);
+      case 'cloud':        return buildCloudPage();
       default:           return '<div class="tp-empty"><div class="tp-empty-text">Page not found</div></div>';
     }
   }
@@ -217,6 +219,8 @@
       bindCookiesEvents();
     } else if (pageId === 'ssh') {
       bindSSHEvents();
+    } else if (pageId === 'cloud') {
+      bindCloudEvents();
     }
   }
 
@@ -1024,6 +1028,71 @@
     const environments = await window.electronAPI?.storage?.environments?.list?.() || [];
     page.outerHTML = buildSSHPage(connections, state, environments);
     bindSSHEvents();
+  }
+
+  // ── Cloud page ──────────────────────────────────────────
+  function buildCloudPage() {
+    return html`
+      <div class="tp-page" data-page="cloud">
+        <div class="tp-page-header">
+          <h1 class="tp-page-title">☁️ Cloud Sessions</h1>
+          <p class="tp-page-desc">Connect to remote cloud development environments.</p>
+        </div>
+
+        <div class="tp-cloud-providers">
+          <div class="tp-cloud-provider-card">
+            <div class="tp-cloud-provider-icon">🐙</div>
+            <div class="tp-cloud-provider-info">
+              <div class="tp-cloud-provider-name">GitHub Codespaces</div>
+              <div class="tp-cloud-provider-status">Not connected</div>
+            </div>
+            <button class="tp-btn tp-btn-primary tp-cloud-connect" data-provider="github">Connect</button>
+          </div>
+
+          <div class="tp-cloud-provider-card">
+            <div class="tp-cloud-provider-icon">🟠</div>
+            <div class="tp-cloud-provider-info">
+              <div class="tp-cloud-provider-name">Gitpod</div>
+              <div class="tp-cloud-provider-status">Not connected</div>
+            </div>
+            <button class="tp-btn tp-btn-primary tp-cloud-connect" data-provider="gitpod">Connect</button>
+          </div>
+
+          <div class="tp-cloud-provider-card">
+            <div class="tp-cloud-provider-icon">🔴</div>
+            <div class="tp-cloud-provider-info">
+              <div class="tp-cloud-provider-name">Replit</div>
+              <div class="tp-cloud-provider-status">Not connected</div>
+            </div>
+            <button class="tp-btn tp-btn-primary tp-cloud-connect" data-provider="replit">Connect</button>
+          </div>
+        </div>
+
+        <div class="tp-cloud-workspaces" id="cloud-workspaces">
+          <div class="tp-empty">
+            <div class="tp-empty-icon">☁️</div>
+            <div class="tp-empty-text">No active workspaces</div>
+            <div class="tp-empty-hint">Connect a provider above to see your cloud environments</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function bindCloudEvents() {
+    if (!$container) return;
+    const main = $container.querySelector('.tp-content');
+    if (!main) return;
+
+    // Connect buttons
+    main.querySelectorAll('.tp-cloud-connect').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const provider = btn.dataset.provider;
+        // TODO: Implement OAuth/device code flow for each provider
+        // For now, show a placeholder message
+        alert(`Integration with ${provider} will be available in a future update.\n\nThis will use device code authentication to connect to your ${provider} account and list available cloud development environments.`);
+      });
+    });
   }
 
   // ── Navigation ───────────────────────────────────────────

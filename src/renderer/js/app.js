@@ -597,6 +597,7 @@
       ['Links', 'Alt', 'Shift', 'K'],
       ['Cookies', 'Alt', 'Shift', 'C'],
       ['SSH Sessions', 'Alt', 'Shift', 'S'],
+      ['Cloud Sessions', 'Alt', 'Shift', 'O'],
     ]},
     { title: 'Dev', items: [
       ['DevTools', 'F12'],
@@ -912,6 +913,10 @@
       else if (e.altKey && e.shiftKey && e.key === 'S') {
         e.preventDefault();
         _tabs.create('surfboard://ssh');
+      }
+      else if (e.altKey && e.shiftKey && e.key === 'O') {
+        e.preventDefault();
+        _tabs.create('surfboard://cloud');
       }
     });
   }

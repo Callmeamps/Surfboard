@@ -35,6 +35,7 @@
     'surfboard://links': 'links',
     'surfboard://cookies': 'cookies',
     'surfboard://ssh': 'ssh',
+    'surfboard://cloud': 'cloud',
   };
 
   function _isInternalUrl(url) {
@@ -68,7 +69,7 @@
     }
 
     // Tab pages: extensions, agents, shell, workflows, links
-    if (['extensions', 'agents', 'shell', 'workflows', 'links', 'cookies', 'ssh'].includes(pageType)) {
+    if (['extensions', 'agents', 'shell', 'workflows', 'links', 'cookies', 'ssh', 'cloud'].includes(pageType)) {
       window.TabPages?.render(_internalPagesEl, pageType, {
         extensions: _deps?.extensions,
       });
