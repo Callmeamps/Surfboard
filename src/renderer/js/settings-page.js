@@ -91,6 +91,9 @@
     const currentTheme = settings.theme || 'dark';
     const fontSize = settings.fontSize || 13;
     const sidebarPosition = settings.sidebarPosition || 'left';
+    const sidebarWidth = settings.sidebarWidth || 220;
+    const titlebarHeight = settings.titlebarHeight || 36;
+    const customCSS = settings.customCSS || '';
 
     return html`
       <div class="sp-section" data-section="appearance">
@@ -120,6 +123,20 @@
             </div>
           </div>
           <div class="sp-field">
+            <label class="sp-label">Sidebar Width</label>
+            <div class="sp-range-row">
+              <input id="sp-sidebar-width" type="range" min="160" max="320" value="${sidebarWidth}" class="sp-range" />
+              <span id="sp-sidebar-width-val" class="sp-range-val">${sidebarWidth}px</span>
+            </div>
+          </div>
+          <div class="sp-field">
+            <label class="sp-label">Titlebar Height</label>
+            <div class="sp-range-row">
+              <input id="sp-titlebar-height" type="range" min="28" max="48" value="${titlebarHeight}" class="sp-range" />
+              <span id="sp-titlebar-height-val" class="sp-range-val">${titlebarHeight}px</span>
+            </div>
+          </div>
+          <div class="sp-field">
             <label class="sp-label">Sidebar Position</label>
             <div class="sp-radio-group">
               <label class="sp-radio">
@@ -131,6 +148,15 @@
                 <span class="sp-radio-label">Right</span>
               </label>
             </div>
+          </div>
+        </div>
+
+        <div class="sp-group">
+          <div class="sp-group-title">Custom CSS</div>
+          <div class="sp-field">
+            <label class="sp-label">CSS Overrides</label>
+            <textarea id="sp-custom-css" class="sp-textarea" rows="8" placeholder=":root { --accent: #ff6b6b; }">${customCSS}</textarea>
+            <span class="sp-hint">Override any CSS variable or selector. Changes apply live.</span>
           </div>
         </div>
       </div>
@@ -464,6 +490,54 @@
         settings.sidebarPosition = e.target.value;
         deps.updateSettings?.({ sidebarPosition: e.target.value });
       });
+    });
+
+    // Sidebar width
+    const sidebarWidthInput = $container.querySelector('#sp-sidebar-width');
+    const sidebarWidthVal = $container.querySelector('#sp-sidebar-width-val');
+    sidebarWidthInput?.addEventListener('input', (e) => {
+      sidebarWidthVal.textContent = e.target.value + 'px';
+      document.documentElement.style.setProperty('--sidebar-w', e.target.value + 'px');
+    });
+    sidebarWidthInput?.addEventListener('change', (e) => {
+      settings.sidebarWidth = parseInt(e.target.value);
+      deps.updateSettings?.({ sidebarWidth: parseInt(e.target.value) });
+    });
+
+    // Titlebar height
+    const titlebarHeightInput = $container.querySelector('#sp-titlebar-height');
+    const titlebarHeightVal = $container.querySelector('#sp-titlebar-height-val');
+    titlebarHeightInput?.addEventListener('input', (e) => {
+      titlebarHeightVal.textContent = e.target.value + 'px';
+      document.documentElement.style.setProperty('--titlebar-h', e.target.value + 'px');
+    });
+    titlebarHeightInput?.addEventListener('change', (e) => {
+      settings.titlebarHeight = parseInt(e.target.value);
+      deps.updateSettings?.({ titlebarHeight: parseInt(e.target.value) });
+    });
+
+    // Custom CSS
+    let customCSSTimer = null;
+    const customCSSTextarea = $container.querySelector('#sp-custom-css');
+    let customCSSStyleEl = document.getElementById('sp-custom-css-style');
+    if (!customCSSStyleEl) {
+      customCSSStyleEl = document.createElement('style');
+      customCSSStyleEl.id = 'sp-custom-css-style';
+      document.head.appendChild(customCSSStyleEl);
+    }
+    // Apply existing custom CSS on load
+    if (settings.customCSS) {
+      customCSSStyleEl.textContent = settings.customCSS;
+    }
+    customCSSTextarea?.addEventListener('input', (e) => {
+      clearTimeout(customCSSTimer);
+      customCSSTimer = setTimeout(() => {
+        customCSSStyleEl.textContent = e.target.value;
+      }, 300);
+    });
+    customCSSTextarea?.addEventListener('change', (e) => {
+      settings.customCSS = e.target.value;
+      deps.updateSettings?.({ customCSS: e.target.value });
     });
 
     // AI fields
