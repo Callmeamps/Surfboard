@@ -135,6 +135,7 @@ function _defaultData() {
       searchEngine: 'google',
       homepage: 'about:blank',
       theme: 'dark',
+      customThemes: [],
     },
   };
 }

@@ -46,6 +46,93 @@
     return strings.reduce((result, str, i) => result + str + (values[i] ?? ''), '');
   }
 
+  const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+  const THEME_FIELDS = [
+    { key: 'name', label: 'Theme Name', id: 'sp-theme-name', type: 'text', fallback: 'Custom Theme' },
+    { key: 'bg', label: 'Background', id: 'sp-theme-bg', type: 'color', fallback: '#141416' },
+    { key: 'surface', label: 'Surface', id: 'sp-theme-surface', type: 'color', fallback: '#1a1a1e' },
+    { key: 'accent', label: 'Accent', id: 'sp-theme-accent', type: 'color', fallback: '#60a5fa' },
+    { key: 'text', label: 'Text', id: 'sp-theme-text', type: 'color', fallback: '#d4d4d8' },
+    { key: 'border', label: 'Border', id: 'sp-theme-border', type: 'color', fallback: '#2a2a30' },
+  ];
+
+  let currentExtensions = [];
+  let currentProfiles = [];
+  let currentActiveProfile = 'default';
+
+  function _esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }[ch]));
+  }
+
+  function normalizeColor(value, fallback) {
+    return HEX_COLOR_RE.test(value || '') ? value : fallback;
+  }
+
+  function getThemeTokens(theme = {}) {
+    const tokens = theme.tokens && typeof theme.tokens === 'object' ? theme.tokens : {};
+    return {
+      name: theme.name || theme.label || theme.id || 'Custom Theme',
+      bg: normalizeColor(tokens.bg || theme.bg, '#141416'),
+      surface: normalizeColor(tokens.surface || theme.surface, '#1a1a1e'),
+      accent: normalizeColor(tokens.accent || theme.accent, '#60a5fa'),
+      text: normalizeColor(tokens.text || theme.text, '#d4d4d8'),
+      border: normalizeColor(tokens.border || theme.border, '#2a2a30'),
+    };
+  }
+
+  function getCustomThemes() {
+    return Array.isArray(settings.customThemes) ? settings.customThemes.filter(t => t && t.id) : [];
+  }
+
+  function getAllThemes() {
+    return [
+      ...THEMES.map(t => ({ ...t, builtIn: true })),
+      ...getCustomThemes().map(t => ({ ...t, label: t.name, custom: true })),
+    ];
+  }
+
+  function slugifyThemeName(name, currentId = '') {
+    const base = String(name || 'custom-theme').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'custom-theme';
+    let id = base;
+    let i = 1;
+    while (getAllThemes().some(t => t.id === id && t.id !== currentId)) {
+      id = `${base}-${i++}`;
+    }
+    return id;
+  }
+
+  function buildThemeCard(theme) {
+    const tokens = getThemeTokens(theme);
+    const currentTheme = settings.theme || 'dark';
+    const active = theme.id === currentTheme;
+    const label = _esc(tokens.name);
+    const id = _esc(theme.id);
+    const owner = theme.custom ? '<span class="sp-theme-owner">Custom</span>' : '';
+    const actions = theme.custom ? `
+              <div class="sp-theme-actions">
+                <button type="button" class="sp-theme-action" data-edit-theme="${id}">Edit</button>
+                <button type="button" class="sp-theme-action sp-theme-action-danger" data-delete-theme="${id}">Delete</button>
+              </div>
+            ` : '';
+
+    return `
+              <div class="sp-theme-card ${active ? 'active' : ''}" data-theme="${id}">
+                <div class="sp-theme-preview" style="background: linear-gradient(135deg, ${tokens.bg}, ${tokens.surface}); border-color: ${active ? tokens.accent : 'transparent'}">
+                  <div class="sp-theme-accent" style="background: ${tokens.accent}"></div>
+                </div>
+                <span class="sp-theme-label">${label}</span>
+                ${owner}
+                ${actions}
+              </div>
+            `;
+  }
+
   function buildSectionGeneral() {
     const currentEngine = settings.searchEngine || 'google';
     const homepage = settings.homepage || 'about:blank';
@@ -94,6 +181,7 @@
     const sidebarWidth = settings.sidebarWidth || 220;
     const titlebarHeight = settings.titlebarHeight || 36;
     const customCSS = settings.customCSS || '';
+    const customThemes = getCustomThemes();
 
     return html`
       <div class="sp-section" data-section="appearance">
@@ -102,14 +190,19 @@
         <div class="sp-group">
           <div class="sp-group-title">Theme</div>
           <div class="sp-theme-grid">
-            ${THEMES.map(t => `
-              <div class="sp-theme-card ${t.id === currentTheme ? 'active' : ''}" data-theme="${t.id}">
-                <div class="sp-theme-preview" style="background: linear-gradient(135deg, ${t.bg}, ${t.surface}); border-color: ${t.id === currentTheme ? t.accent : 'transparent'}">
-                  <div class="sp-theme-accent" style="background: ${t.accent}"></div>
-                </div>
-                <span class="sp-theme-label">${t.label}</span>
-              </div>
-            `).join('')}
+            ${THEMES.map(buildThemeCard).join('')}
+          </div>
+        </div>
+
+        <div class="sp-group">
+          <div class="sp-group-title">Custom Themes</div>
+          <div class="sp-theme-actions-row">
+            <button type="button" id="sp-theme-new" class="sp-btn sp-btn-secondary">Create Custom Theme</button>
+          </div>
+          <div class="sp-theme-grid sp-theme-grid-custom">
+            ${customThemes.length ? customThemes.map(t => buildThemeCard({ ...t, label: t.name, custom: true })).join('') : `
+              <div class="sp-empty sp-theme-empty">No custom themes yet. Create one to store your own color tokens.</div>
+            `}
           </div>
         </div>
 
@@ -378,10 +471,40 @@
     `;
   }
 
+  function buildThemeDialog() {
+    return html`
+      <div id="sp-theme-dialog" class="sp-dialog-overlay hidden">
+        <div class="sp-dialog" role="dialog" aria-labelledby="sp-theme-dialog-title">
+          <div class="sp-dialog-header">
+            <h3 id="sp-theme-dialog-title">Custom Theme</h3>
+            <button type="button" id="sp-theme-dialog-close" class="sp-dialog-close" aria-label="Close">✕</button>
+          </div>
+          <div class="sp-dialog-body">
+            <input id="sp-theme-id" type="hidden" value="" />
+            ${THEME_FIELDS.map(f => `
+              <div class="sp-field">
+                <label class="sp-label" for="${f.id}">${f.label}</label>
+                <input id="${f.id}" class="sp-input sp-theme-field" type="${f.type}" value="" placeholder="${_esc(f.fallback)}" />
+              </div>
+            `).join('')}
+            <div id="sp-theme-dialog-error" class="sp-form-error" role="alert"></div>
+          </div>
+          <div class="sp-dialog-footer">
+            <button type="button" id="sp-theme-dialog-cancel" class="sp-btn sp-btn-secondary">Cancel</button>
+            <button type="button" id="sp-theme-dialog-save" class="sp-btn sp-btn-primary">Save Theme</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   async function render(container, settingsData, extensions, profilesList, activeProfile, storageDeps) {
     $container = container;
     settings = settingsData || {};
     deps = storageDeps || {};
+    currentExtensions = extensions || [];
+    currentProfiles = profilesList || [];
+    currentActiveProfile = activeProfile || 'default';
 
     // Fetch profiles if not provided
     if (!profilesList || profilesList.length === 0) {
@@ -401,6 +524,10 @@
         extensions = [];
       }
     }
+
+    currentExtensions = extensions || [];
+    currentProfiles = profilesList || [];
+    currentActiveProfile = activeProfile || 'default';
 
     $container.innerHTML = html`
       <div class="settings-page">
@@ -427,6 +554,7 @@
           ${buildSectionProfiles(profilesList, activeProfile)}
           ${buildSectionShortcuts()}
           ${buildSectionAbout()}
+          ${buildThemeDialog()}
         </main>
       </div>
     `;
@@ -443,7 +571,8 @@
 
     // Theme selection
     $container.querySelectorAll('.sp-theme-card').forEach(card => {
-      card.addEventListener('click', () => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('[data-edit-theme], [data-delete-theme]')) return;
         const themeId = card.dataset.theme;
         $container.querySelectorAll('.sp-theme-card').forEach(c => c.classList.remove('active'));
         card.classList.add('active');
@@ -453,6 +582,35 @@
         applyTheme(themeId);
       });
     });
+
+    // Custom theme builder
+    $container.querySelector('#sp-theme-new')?.addEventListener('click', () => openThemeDialog());
+    $container.querySelectorAll('[data-edit-theme]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const theme = getCustomThemes().find(t => t.id === btn.dataset.editTheme);
+        openThemeDialog(theme);
+      });
+    });
+    $container.querySelectorAll('[data-delete-theme]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Delete this custom theme?')) return;
+        const themeId = btn.dataset.deleteTheme;
+        settings.customThemes = getCustomThemes().filter(t => t.id !== themeId);
+        if (settings.theme === themeId) {
+          settings.theme = settings.customThemes[0]?.id || 'dark';
+          applyTheme(settings.theme);
+        }
+        await deps.updateSettings?.({ theme: settings.theme, customThemes: settings.customThemes });
+        await refreshSettingsPage();
+        showToast('Custom theme deleted');
+      });
+    });
+    $container.querySelector('#sp-theme-dialog-close')?.addEventListener('click', closeThemeDialog);
+    $container.querySelector('#sp-theme-dialog-cancel')?.addEventListener('click', closeThemeDialog);
+    $container.querySelector('#sp-theme-dialog')?.addEventListener('click', (e) => {
+      if (e.target.id === 'sp-theme-dialog') closeThemeDialog();
+    });
+    $container.querySelector('#sp-theme-dialog-save')?.addEventListener('click', saveThemeDialog);
 
     // Search engine
     $container.querySelector('#sp-search-engine')?.addEventListener('change', (e) => {
@@ -595,6 +753,98 @@
     });
   }
 
+  function openThemeDialog(theme) {
+    const overlay = document.getElementById('sp-theme-dialog');
+    if (!overlay) return;
+    const tokens = theme ? getThemeTokens(theme) : {};
+    THEME_FIELDS.forEach(f => {
+      const el = document.getElementById(f.id);
+      if (!el) return;
+      el.value = theme ? (f.key === 'name' ? tokens.name : tokens[f.key]) : (f.key === 'name' ? '' : f.fallback);
+    });
+    document.getElementById('sp-theme-dialog-title').textContent = theme ? 'Edit Custom Theme' : 'Create Custom Theme';
+    const idEl = document.getElementById('sp-theme-id');
+    if (idEl) idEl.value = theme?.id || '';
+    setThemeDialogError('');
+    overlay.classList.remove('hidden');
+    document.getElementById('sp-theme-name')?.focus();
+  }
+
+  function closeThemeDialog() {
+    document.getElementById('sp-theme-dialog')?.classList.add('hidden');
+    setThemeDialogError('');
+  }
+
+  function setThemeDialogError(message) {
+    const el = document.getElementById('sp-theme-dialog-error');
+    if (el) el.textContent = message || '';
+  }
+
+  function readThemeDialog() {
+    const values = {
+      id: document.getElementById('sp-theme-id')?.value || '',
+    };
+    for (const f of THEME_FIELDS) {
+      const el = document.getElementById(f.id);
+      values[f.key] = el?.value ?? '';
+    }
+    return values;
+  }
+
+  async function saveThemeDialog() {
+    const values = readThemeDialog();
+    const name = values.name.trim();
+    if (!name) {
+      setThemeDialogError('Theme name is required.');
+      return;
+    }
+
+    const existing = getCustomThemes().find(t => t.id === values.id);
+    const id = existing?.id || slugifyThemeName(name, values.id);
+    if (THEMES.some(t => t.id === id)) {
+      setThemeDialogError('That theme id already exists.');
+      return;
+    }
+
+    const nextThemes = getCustomThemes().filter(t => t.id !== id);
+    const theme = {
+      id,
+      name,
+      tokens: {
+        bg: normalizeColor(values.bg, '#141416'),
+        surface: normalizeColor(values.surface, '#1a1a1e'),
+        accent: normalizeColor(values.accent, '#60a5fa'),
+        text: normalizeColor(values.text, '#d4d4d8'),
+        border: normalizeColor(values.border, '#2a2a30'),
+      },
+      updatedAt: Date.now(),
+    };
+
+    const invalidColor = Object.entries(theme.tokens).find(([, color]) => !HEX_COLOR_RE.test(color));
+    if (invalidColor) {
+      setThemeDialogError('Use valid 6-digit hex colors.');
+      return;
+    }
+
+    nextThemes.push(theme);
+    settings.customThemes = nextThemes;
+    settings.theme = id;
+    if (deps.updateSettings) {
+      await deps.updateSettings({ theme: id, customThemes: nextThemes });
+    }
+    applyTheme(id);
+    closeThemeDialog();
+    await refreshSettingsPage();
+    showToast('Custom theme saved');
+  }
+
+  async function refreshSettingsPage() {
+    if (!$container) return;
+    const active = $activeSection || 'appearance';
+    await render($container, settings, currentExtensions, currentProfiles, currentActiveProfile, deps);
+    showSection(active);
+  }
+
   function showSection(sectionId) {
     // Update nav
     $container.querySelectorAll('.sp-nav-item').forEach(btn => {
@@ -610,18 +860,21 @@
   }
 
   function applyTheme(id) {
-    const THEMES_MAP = {
-      dark: { bg: '#141416', surface: '#1a1a1e', accent: '#60a5fa' },
-      nord: { bg: '#2e3440', surface: '#3b4252', accent: '#88c0d0' },
-      drac: { bg: '#282a36', surface: '#44475a', accent: '#bd93f9' },
-      gruv: { bg: '#282828', surface: '#3c3836', accent: '#fabd2f' },
-      pard: { bg: '#1e1e2e', surface: '#313244', accent: '#cba6f7' },
-    };
-    const t = THEMES_MAP[id] || THEMES_MAP.dark;
+    const allThemes = getAllThemes();
+    const t = allThemes.find(t => t.id === id) || allThemes[0];
+    const tokens = getThemeTokens(t);
     const r = document.documentElement.style;
-    r.setProperty('--bg', t.bg);
-    r.setProperty('--surface', t.surface);
-    r.setProperty('--accent', t.accent);
+    r.setProperty('--bg', tokens.bg);
+    r.setProperty('--bg-elevated', tokens.surface);
+    r.setProperty('--bg-hover', tokens.surface);
+    r.setProperty('--bg-active', tokens.border);
+    r.setProperty('--surface', tokens.surface);
+    r.setProperty('--border', tokens.border);
+    r.setProperty('--text', tokens.text);
+    r.setProperty('--text-dim', tokens.text);
+    r.setProperty('--text-faint', tokens.text);
+    r.setProperty('--accent', tokens.accent);
+    r.setProperty('--accent-hover', tokens.accent);
   }
 
   function showToast(message) {
@@ -636,5 +889,5 @@
     }, 2000);
   }
 
-  window.SettingsPage = { render };
+  window.SettingsPage = { render, applyTheme, openThemeDialog, saveThemeDialog };
 })();

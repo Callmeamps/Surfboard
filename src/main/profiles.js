@@ -86,6 +86,22 @@ function _writeAll(data) {
   }
 }
 
+function _defaultSettings() {
+  return {
+    searchEngine: 'google',
+    homepage: 'about:blank',
+    theme: 'dark',
+    customThemes: [],
+  };
+}
+
+function _normalizeSettings(settings) {
+  const defaults = _defaultSettings();
+  const normalized = { ...defaults, ...(settings && typeof settings === 'object' ? settings : {}) };
+  if (!Array.isArray(normalized.customThemes)) normalized.customThemes = [];
+  return normalized;
+}
+
 // ── Profile-scoped data I/O ────────────────────────────
 
 function _readProfileData(profileId) {
@@ -163,11 +179,7 @@ function createProfile({ name, color, avatar } = {}) {
   _writeProfileData(id, {
     bookmarks: [],
     history: [],
-    settings: {
-      searchEngine: 'google',
-      homepage: 'about:blank',
-      theme: 'dark',
-    },
+    settings: _defaultSettings(),
     tabOrder: null,
   });
 
@@ -322,15 +334,16 @@ function getProfileSettings(profileId) {
   _ensureInit();
   const pid = profileId || getCurrentProfileId();
   const data = _readProfileData(pid);
-  return data?.settings ? { ...data.settings } : {};
+  return _normalizeSettings(data?.settings);
 }
 
 function updateProfileSettings(patch, profileId) {
   _ensureInit();
   const pid = profileId || getCurrentProfileId();
-  const data = _readProfileData(pid) || { bookmarks: [], history: [], settings: {} };
-  if (!data.settings || typeof data.settings !== 'object') data.settings = {};
+  const data = _readProfileData(pid) || { bookmarks: [], history: [], settings: _defaultSettings() };
+  data.settings = _normalizeSettings(data.settings);
   Object.assign(data.settings, patch);
+  data.settings = _normalizeSettings(data.settings);
   _writeProfileData(pid, data);
   return { ...data.settings };
 }
@@ -455,11 +468,7 @@ function init() {
     _writeProfileData('default', {
       bookmarks: [],
       history: [],
-      settings: {
-        searchEngine: 'google',
-        homepage: 'about:blank',
-        theme: 'dark',
-      },
+      settings: _defaultSettings(),
       tabOrder: null,
     });
   }

@@ -212,6 +212,7 @@ describe('profiles', () => {
     it('gets and updates settings', () => {
       const s = profiles.getProfileSettings();
       expect(s.theme).toBe('dark');
+      expect(Array.isArray(s.customThemes)).toBe(true);
 
       profiles.updateProfileSettings({ theme: 'nord' });
       expect(profiles.getProfileSettings().theme).toBe('nord');

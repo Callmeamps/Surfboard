@@ -103,6 +103,14 @@ describe('storage settings', () => {
     expect(s).toHaveProperty('searchEngine');
     expect(s).toHaveProperty('homepage');
     expect(s).toHaveProperty('theme');
+    expect(Array.isArray(s.customThemes)).toBe(true);
+  });
+
+  test('updateSettings merges custom themes', () => {
+    const theme = { id: 'solar', name: 'Solar', tokens: { bg: '#111111', surface: '#222222', accent: '#f59e0b', text: '#ffffff', border: '#333333' } };
+    storage.updateSettings({ customThemes: [theme] });
+    const s = storage.getSettings();
+    expect(s.customThemes).toEqual([theme]);
   });
 
   test('updateSettings merges patch', () => {
