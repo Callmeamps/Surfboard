@@ -32,6 +32,8 @@
     'surfboard://agents': 'agents',
     'surfboard://shell': 'shell',
     'surfboard://workflows': 'workflows',
+    'surfboard://links': 'links',
+    'surfboard://cookies': 'cookies',
   };
 
   function _isInternalUrl(url) {
@@ -64,8 +66,8 @@
       return true;
     }
 
-    // Tab pages: extensions, agents, shell, workflows
-    if (['extensions', 'agents', 'shell', 'workflows'].includes(pageType)) {
+    // Tab pages: extensions, agents, shell, workflows, links
+    if (['extensions', 'agents', 'shell', 'workflows', 'links', 'cookies'].includes(pageType)) {
       window.TabPages?.render(_internalPagesEl, pageType, {
         extensions: _deps?.extensions,
       });

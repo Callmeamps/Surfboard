@@ -103,6 +103,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     unload: (extensionId) => ipcRenderer.invoke('extensions:unload', extensionId),
   },
 
+  // ── Cookie management ─────────────────────────────────
+  cookies: {
+    get: (filter) => ipcRenderer.invoke('cookies:get', filter),
+    set: (details) => ipcRenderer.invoke('cookies:set', details),
+    remove: (url, name) => ipcRenderer.invoke('cookies:remove', url, name),
+    clear: () => ipcRenderer.invoke('cookies:clear'),
+    export: () => ipcRenderer.invoke('cookies:export'),
+  },
+
   // ── Webview context menu ──────────────────────────────
   webview: {
     showContextMenu: (params) => ipcRenderer.send('webview:context-menu', params),

@@ -13,6 +13,8 @@
     { id: 'agents', icon: '🤖', label: 'AI Agents' },
     { id: 'shell', icon: '💻', label: 'Shell' },
     { id: 'workflows', icon: '⚡', label: 'Workflows' },
+    { id: 'links', icon: '🔗', label: 'Links' },
+    { id: 'cookies', icon: '🍪', label: 'Cookies' },
   ];
 
   let $container = null;
@@ -187,6 +189,8 @@
       case 'agents':     return buildAgentsPage();
       case 'shell':      return buildShellPage();
       case 'workflows':  return buildWorkflowsPage();
+      case 'links':      return buildLinksPage(data?.bookmarks);
+      case 'cookies':    return buildCookiesPage(data?.cookies);
       default:           return '<div class="tp-empty"><div class="tp-empty-text">Page not found</div></div>';
     }
   }
@@ -205,6 +209,10 @@
       bindShellEvents();
     } else if (pageId === 'workflows') {
       bindWorkflowsEvents();
+    } else if (pageId === 'links') {
+      bindLinksEvents();
+    } else if (pageId === 'cookies') {
+      bindCookiesEvents();
     }
   }
 
@@ -430,6 +438,307 @@
     });
   }
 
+  // ── Links page ───────────────────────────────────────────
+  function buildLinksPage(bookmarks) {
+    const bms = bookmarks || [];
+    // Group by folder
+    const folders = {};
+    for (const bm of bms) {
+      const f = bm.folder || 'Unsorted';
+      if (!folders[f]) folders[f] = [];
+      folders[f].push(bm);
+    }
+    const folderNames = Object.keys(folders).sort();
+
+    return html`
+      <div class="tp-page" data-page="links">
+        <div class="tp-page-header">
+          <h1 class="tp-page-title">🔗 Links</h1>
+          <p class="tp-page-desc">Saved bookmarks organized by collection. Click to open, right-click to edit.</p>
+        </div>
+
+        <div class="tp-links-toolbar">
+          <input class="tp-input tp-links-search" id="tp-links-search" placeholder="Search links…" />
+          <button class="tp-btn tp-btn-primary" id="tp-links-add">+ Add Link</button>
+          <button class="tp-btn" id="tp-links-import">Import</button>
+          <button class="tp-btn" id="tp-links-export">Export</button>
+        </div>
+
+        ${bms.length === 0 ? `
+          <div class="tp-empty">
+            <div class="tp-empty-icon">🔗</div>
+            <div class="tp-empty-text">No saved links yet</div>
+            <div class="tp-empty-hint">Bookmark pages with Ctrl+D or use the sidebar bookmark button</div>
+          </div>
+        ` : folderNames.map(folder => `
+          <div class="tp-links-folder" data-folder="${_esc(folder)}">
+            <div class="tp-links-folder-header">
+              <span class="tp-links-folder-icon">📁</span>
+              <span class="tp-links-folder-name">${_esc(folder)}</span>
+              <span class="tp-links-folder-count">${folders[folder].length}</span>
+            </div>
+            <div class="tp-links-grid">
+              ${folders[folder].map(bm => `
+                <div class="tp-links-card" data-bm-id="${_esc(bm.id)}" data-bm-url="${_esc(bm.url)}">
+                  <div class="tp-links-card-icon">🌐</div>
+                  <div class="tp-links-card-body">
+                    <div class="tp-links-card-title">${_esc(bm.label || bm.url)}</div>
+                    <div class="tp-links-card-url">${_esc(bm.url)}</div>
+                  </div>
+                  <div class="tp-links-card-actions">
+                    <button class="tp-btn tp-btn-sm tp-links-edit" data-bm-edit="${_esc(bm.id)}">✏️</button>
+                    <button class="tp-btn tp-btn-sm tp-btn-danger tp-links-delete" data-bm-delete="${_esc(bm.id)}">🗑️</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function bindLinksEvents() {
+    if (!$container) return;
+    const main = $container.querySelector('.tp-content');
+    if (!main) return;
+
+    // Search filter
+    main.querySelector('#tp-links-search')?.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase();
+      main.querySelectorAll('.tp-links-card').forEach(card => {
+        const title = (card.querySelector('.tp-links-card-title')?.textContent || '').toLowerCase();
+        const url = (card.dataset.bmUrl || '').toLowerCase();
+        card.style.display = (title.includes(q) || url.includes(q)) ? '' : 'none';
+      });
+      // Show/hide empty folders
+      main.querySelectorAll('.tp-links-folder').forEach(folder => {
+        const visible = folder.querySelectorAll('.tp-links-card:not([style*="display: none"])').length;
+        folder.style.display = visible > 0 ? '' : 'none';
+      });
+    });
+
+    // Click card to open URL
+    main.querySelectorAll('.tp-links-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.tp-links-edit') || e.target.closest('.tp-links-delete')) return;
+        const url = card.dataset.bmUrl;
+        if (url) window.electronAPI?.tabs?.create?.(url);
+      });
+    });
+
+    // Delete bookmark
+    main.querySelectorAll('[data-bm-delete]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.bmDelete;
+        if (!id) return;
+        await window.electronAPI?.storage?.removeBookmark?.(id);
+        // Re-fetch and re-render
+        try {
+          const bms = await window.electronAPI?.storage?.getBookmarks?.() || [];
+          const page = main.querySelector('[data-page="links"]');
+          if (page) page.outerHTML = buildLinksPage(bms);
+          bindLinksEvents();
+        } catch { /* */ }
+      });
+    });
+
+    // Edit bookmark (inline rename)
+    main.querySelectorAll('[data-bm-edit]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.bmEdit;
+        const card = btn.closest('.tp-links-card');
+        if (!id || !card) return;
+        const titleEl = card.querySelector('.tp-links-card-title');
+        const currentLabel = titleEl?.textContent || '';
+        const newLabel = prompt('Rename bookmark:', currentLabel);
+        if (newLabel && newLabel !== currentLabel) {
+          await window.electronAPI?.storage?.updateBookmark?.(id, { label: newLabel });
+          if (titleEl) titleEl.textContent = newLabel;
+        }
+      });
+    });
+
+    // Add link
+    main.querySelector('#tp-links-add')?.addEventListener('click', async () => {
+      const url = prompt('URL:');
+      if (!url) return;
+      const label = prompt('Label:', url);
+      await window.electronAPI?.storage?.addBookmark?.({ url, label: label || url, folder: 'Bookmarks Bar' });
+      // Re-render
+      try {
+        const bms = await window.electronAPI?.storage?.getBookmarks?.() || [];
+        const page = main.querySelector('[data-page="links"]');
+        if (page) page.outerHTML = buildLinksPage(bms);
+        bindLinksEvents();
+      } catch { /* */ }
+    });
+
+    // Export bookmarks
+    main.querySelector('#tp-links-export')?.addEventListener('click', async () => {
+      const bms = await window.electronAPI?.storage?.getBookmarks?.() || [];
+      if (!bms.length) return;
+      let html_content = '<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks</H1>\n<DL><p>\n';
+      bms.forEach(bm => { html_content += `  <DT><A HREF="${bm.url}">${bm.label}</A>\n`; });
+      html_content += '</DL><p>';
+      const blob = new Blob([html_content], { type: 'text/html' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'surfboard-links.html'; a.click();
+    });
+
+    // Import (file picker)
+    main.querySelector('#tp-links-import')?.addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = '.html,.json';
+      input.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0]; if (!file) return;
+        const text = await file.text();
+        let imported = 0;
+        // Try Netscape HTML format
+        const re = /<A\s+HREF="([^"]+)"[^>]*>([^<]*)<\/A>/gi;
+        let m;
+        while ((m = re.exec(text))) {
+          const url = m[1]; const label = m[2];
+          if (url && label) {
+            await window.electronAPI?.storage?.addBookmark?.({ url, label, folder: 'Imported' });
+            imported++;
+          }
+        }
+        if (imported > 0) {
+          const bms = await window.electronAPI?.storage?.getBookmarks?.() || [];
+          const page = main.querySelector('[data-page="links"]');
+          if (page) page.outerHTML = buildLinksPage(bms);
+          bindLinksEvents();
+        }
+      });
+      input.click();
+    });
+  }
+
+  // ── Cookies page ────────────────────────────────────────
+  function buildCookiesPage(cookies) {
+    const list = cookies || [];
+    // Group by domain
+    const byDomain = {};
+    for (const c of list) {
+      const d = c.domain || '(no domain)';
+      if (!byDomain[d]) byDomain[d] = [];
+      byDomain[d].push(c);
+    }
+    const domains = Object.keys(byDomain).sort();
+
+    return html`
+      <div class="tp-page" data-page="cookies">
+        <div class="tp-page-header">
+          <h1 class="tp-page-title">🍪 Cookies</h1>
+          <p class="tp-page-desc">View, edit, and delete cookies stored by the browser.</p>
+        </div>
+
+        <div class="tp-links-toolbar">
+          <input class="tp-input tp-links-search" id="tp-cookie-search" placeholder="Search cookies…" />
+          <button class="tp-btn tp-btn-danger" id="tp-cookie-clear-all">Clear All</button>
+          <button class="tp-btn" id="tp-cookie-export">Export</button>
+        </div>
+
+        ${list.length === 0 ? `
+          <div class="tp-empty">
+            <div class="tp-empty-icon">🍪</div>
+            <div class="tp-empty-text">No cookies stored</div>
+            <div class="tp-empty-hint">Cookies are added automatically as you browse</div>
+          </div>
+        ` : domains.map(domain => `
+          <div class="tp-links-folder" data-domain="${_esc(domain)}">
+            <div class="tp-links-folder-header">
+              <span class="tp-links-folder-icon">🌐</span>
+              <span class="tp-links-folder-name">${_esc(domain)}</span>
+              <span class="tp-links-folder-count">${byDomain[domain].length}</span>
+            </div>
+            <div class="tp-cookie-table">
+              <div class="tp-cookie-row tp-cookie-header">
+                <span class="tp-cookie-name">Name</span>
+                <span class="tp-cookie-value">Value</span>
+                <span class="tp-cookie-path">Path</span>
+                <span class="tp-cookie-flags">Flags</span>
+                <span class="tp-cookie-actions"></span>
+              </div>
+              ${byDomain[domain].map(c => `
+                <div class="tp-cookie-row" data-cookie-name="${_esc(c.name)}" data-cookie-domain="${_esc(c.domain)}">
+                  <span class="tp-cookie-name" title="${_esc(c.name)}">${_esc(c.name)}</span>
+                  <span class="tp-cookie-value" title="${_esc(c.value)}">${_esc(c.value.length > 40 ? c.value.slice(0, 40) + '…' : c.value)}</span>
+                  <span class="tp-cookie-path">${_esc(c.path)}</span>
+                  <span class="tp-cookie-flags">
+                    ${c.secure ? '<span class="tp-badge">🔒</span>' : ''}
+                    ${c.httpOnly ? '<span class="tp-badge">H</span>' : ''}
+                    ${c.session ? '<span class="tp-badge tp-badge-warn">S</span>' : ''}
+                  </span>
+                  <span class="tp-cookie-actions">
+                    <button class="tp-btn tp-btn-sm tp-btn-danger tp-cookie-delete" data-cookie-url="${_esc('http' + (c.secure ? 's' : '') + '://' + c.domain + c.path)}" data-cookie-name="${_esc(c.name)}">🗑️</button>
+                  </span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function bindCookiesEvents() {
+    if (!$container) return;
+    const main = $container.querySelector('.tp-content');
+    if (!main) return;
+
+    // Search filter
+    main.querySelector('#tp-cookie-search')?.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase();
+      main.querySelectorAll('.tp-cookie-row:not(.tp-cookie-header)').forEach(row => {
+        const name = (row.querySelector('.tp-cookie-name')?.textContent || '').toLowerCase();
+        const value = (row.querySelector('.tp-cookie-value')?.textContent || '').toLowerCase();
+        row.style.display = (name.includes(q) || value.includes(q)) ? '' : 'none';
+      });
+      main.querySelectorAll('.tp-links-folder').forEach(folder => {
+        const visible = folder.querySelectorAll('.tp-cookie-row:not(.tp-cookie-header):not([style*="display: none"])').length;
+        folder.style.display = visible > 0 ? '' : 'none';
+      });
+    });
+
+    // Delete cookie
+    main.querySelectorAll('.tp-cookie-delete').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const url = btn.dataset.cookieUrl;
+        const name = btn.dataset.cookieName;
+        if (!url || !name) return;
+        await window.electronAPI?.cookies?.remove?.(url, name);
+        btn.closest('.tp-cookie-row')?.remove();
+      });
+    });
+
+    // Clear all
+    main.querySelector('#tp-cookie-clear-all')?.addEventListener('click', async () => {
+      if (!confirm('Clear all cookies?')) return;
+      // Get all cookies and remove them
+      const cookies = await window.electronAPI?.cookies?.get?.({}) || [];
+      for (const c of cookies) {
+        const url = 'http' + (c.secure ? 's' : '') + '://' + c.domain + c.path;
+        await window.electronAPI?.cookies?.remove?.(url, c.name);
+      }
+      // Re-render
+      const empty = main.querySelector('.tp-page[data-page="cookies"]');
+      if (empty) empty.outerHTML = buildCookiesPage([]);
+      bindCookiesEvents();
+    });
+
+    // Export
+    main.querySelector('#tp-cookie-export')?.addEventListener('click', async () => {
+      const data = await window.electronAPI?.cookies?.export?.();
+      if (!data) return;
+      const blob = new Blob([data], { type: 'text/plain' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'cookies.txt'; a.click();
+    });
+  }
+
   // ── Navigation ───────────────────────────────────────────
   function showPage(pageId) {
     $container.querySelectorAll('.tp-nav-item').forEach(btn => {
@@ -455,7 +764,23 @@
       } catch { /* */ }
     }
 
-    const pageData = { extensions };
+    // Fetch bookmarks if on links page
+    let bookmarks = [];
+    if (pageId === 'links') {
+      try {
+        bookmarks = await window.electronAPI?.storage?.getBookmarks?.() || [];
+      } catch { /* */ }
+    }
+
+    // Fetch cookies if on cookies page
+    let cookies = [];
+    if (pageId === 'cookies') {
+      try {
+        cookies = await window.electronAPI?.cookies?.get?.({}) || [];
+      } catch { /* */ }
+    }
+
+    const pageData = { extensions, bookmarks, cookies };
 
     container.innerHTML = html`
       <div class="tab-pages">

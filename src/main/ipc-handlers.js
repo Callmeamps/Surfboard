@@ -296,6 +296,57 @@ function register() {
     return true;
   });
 
+  // ── Cookie management ────────────────────────────────
+  ipcMain.handle('cookies:get', async (_event, filter) => {
+    const ses = session.defaultSession;
+    const cookies = await ses.cookies.get(filter || {});
+    return cookies.map(c => ({
+      name: c.name,
+      value: c.value,
+      domain: c.domain,
+      path: c.path,
+      expirationDate: c.expirationDate,
+      hostOnly: c.hostOnly,
+      httpOnly: c.httpOnly,
+      secure: c.secure,
+      session: c.session,
+      sameSite: c.sameSite,
+    }));
+  });
+
+  ipcMain.handle('cookies:set', async (_event, details) => {
+    const ses = session.defaultSession;
+    await ses.cookies.set(details);
+    return true;
+  });
+
+  ipcMain.handle('cookies:remove', async (_event, url, name) => {
+    const ses = session.defaultSession;
+    await ses.cookies.remove(url, name);
+    return true;
+  });
+
+  ipcMain.handle('cookies:clear', async () => {
+    const ses = session.defaultSession;
+    await ses.cookies.flushStore();
+    return true;
+  });
+
+  ipcMain.handle('cookies:export', async () => {
+    const ses = session.defaultSession;
+    const cookies = await ses.cookies.get({});
+    // Netscape format
+    let output = '# Netscape HTTP Cookie File\n';
+    for (const c of cookies) {
+      const domain = c.domain.startsWith('.') ? c.domain : '.' + c.domain;
+      const flag = c.hostOnly ? 'TRUE' : 'FALSE';
+      const exp = c.session ? '0' : String(Math.floor(c.expirationDate || 0));
+      const secure = c.secure ? 'TRUE' : 'FALSE';
+      output += `${domain}\t${flag}\t${c.path}\t${secure}\t${exp}\t${c.name}\t${c.value}\n`;
+    }
+    return output;
+  });
+
   // ── Window controls ───────────────────────────────────
   ipcMain.on('window:minimize', () => {
     windowManager.minimize();

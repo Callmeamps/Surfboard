@@ -594,6 +594,8 @@
       ['Agents', 'Alt', 'Shift', 'G'],
       ['Shell', 'Alt', 'Shift', 'L'],
       ['Workflows', 'Alt', 'Shift', 'F'],
+      ['Links', 'Alt', 'Shift', 'K'],
+      ['Cookies', 'Alt', 'Shift', 'C'],
     ]},
     { title: 'Dev', items: [
       ['DevTools', 'F12'],
@@ -897,6 +899,14 @@
       else if (e.altKey && e.shiftKey && e.key === 'F') {
         e.preventDefault();
         _tabs.create('surfboard://workflows');
+      }
+      else if (e.altKey && e.shiftKey && e.key === 'K') {
+        e.preventDefault();
+        _tabs.create('surfboard://links');
+      }
+      else if (e.altKey && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        _tabs.create('surfboard://cookies');
       }
     });
   }
