@@ -18,6 +18,11 @@
     { id: 'ssh', icon: '🔐', label: 'SSH' },
     { id: 'cloud', icon: '☁️', label: 'Cloud' },
   ];
+  const CLOUD_PROVIDERS = [
+    { id: 'github', icon: '🐙', label: 'GitHub Codespaces' },
+    { id: 'replit', icon: '🟧', label: 'Replit' },
+    { id: 'gitpod', icon: '🟢', label: 'Gitpod' },
+  ];
 
   let $container = null;
   let $activePage = null;
@@ -756,6 +761,13 @@
     const conns = connections || [];
     const envs = environments || [];
     const isConnected = state?.connected || false;
+    const isReconnecting = state?.reconnecting || false;
+    const showTerminal = isConnected || isReconnecting;
+    const statusText = isReconnecting
+      ? `🟡 Reconnecting to ${_esc(state?.host || '')} (${state?.reconnectAttempt || 0}/${state?.reconnectMaxAttempts || 0})`
+      : isConnected
+        ? `🟢 Connected to ${_esc(state?.host || '')}`
+        : 'Disconnected';
 
     return html`
       <div class="tp-page" data-page="ssh">
@@ -808,7 +820,7 @@
           </div>
 
           <div class="tp-ssh-main">
-            ${!isConnected ? `
+            ${!showTerminal ? `
               <div class="tp-ssh-connect-form" id="ssh-connect-form">
                 <h3 style="margin-bottom:12px;color:var(--text)">New Connection</h3>
                 <div class="tp-ssh-form-row">
@@ -829,13 +841,13 @@
               </div>
             ` : `
               <div class="tp-ssh-terminal-header">
-                <span class="tp-ssh-status">🟢 Connected to ${_esc(state?.host || '')}</span>
+                <span class="tp-ssh-status">${statusText}${isReconnecting && state?.lastError ? ` · ${_esc(state.lastError)}` : ''}</span>
                 <button class="tp-btn tp-btn-sm tp-btn-danger" id="ssh-disconnect-btn">Disconnect</button>
               </div>
               <div class="tp-ssh-terminal" id="ssh-output"></div>
               <div class="tp-ssh-input-row">
                 <span class="tp-ssh-prompt">$</span>
-                <input class="tp-input tp-ssh-input" id="ssh-input" placeholder="Enter command…" autofocus />
+                <input class="tp-input tp-ssh-input" id="ssh-input" placeholder="${isReconnecting ? 'Reconnecting…' : 'Enter command…'}" ${isReconnecting ? 'disabled' : ''} autofocus />
               </div>
             `}
           </div>
@@ -1032,34 +1044,42 @@
 
   // ── Cloud page ──────────────────────────────────────────
   function buildCloudPage(cloudStatus, workspaces) {
-    const connected = cloudStatus?.connected || false;
+    const providers = cloudStatus?.providers || {};
+    const legacyConnected = cloudStatus?.connected || false;
     const ws = workspaces || [];
+
+    const providerCards = CLOUD_PROVIDERS.map(provider => {
+      const connected = providers[provider.id]?.connected || (provider.id === 'github' && legacyConnected);
+      return `
+        <div class="tp-cloud-provider-card" data-provider="${provider.id}">
+          <div class="tp-cloud-provider-icon">${provider.icon}</div>
+          <div class="tp-cloud-provider-info">
+            <div class="tp-cloud-provider-name">${_esc(provider.label)}</div>
+            <div class="tp-cloud-provider-status">${connected ? '● Connected' : 'Not connected'}</div>
+          </div>
+          ${connected
+            ? `<button class="tp-btn tp-btn-danger tp-cloud-disconnect" data-provider="${provider.id}">Disconnect</button>`
+            : `<button class="tp-btn tp-btn-primary tp-cloud-connect" data-provider="${provider.id}">Connect</button>`
+          }
+        </div>
+      `;
+    }).join('');
 
     return html`
       <div class="tp-page" data-page="cloud">
         <div class="tp-page-header">
           <h1 class="tp-page-title">☁️ Cloud Sessions</h1>
-          <p class="tp-page-desc">Connect to remote cloud development environments.</p>
+          <p class="tp-page-desc">Connect to GitHub Codespaces, Replit, and Gitpod development environments.</p>
         </div>
 
         <div class="tp-cloud-providers">
-          <div class="tp-cloud-provider-card">
-            <div class="tp-cloud-provider-icon">🐙</div>
-            <div class="tp-cloud-provider-info">
-              <div class="tp-cloud-provider-name">GitHub Codespaces</div>
-              <div class="tp-cloud-provider-status">${connected ? '● Connected' : 'Not connected'}</div>
-            </div>
-            ${connected
-              ? `<button class="tp-btn tp-btn-danger tp-cloud-disconnect" data-provider="github">Disconnect</button>`
-              : `<button class="tp-btn tp-btn-primary tp-cloud-connect" data-provider="github">Connect</button>`
-            }
-          </div>
+          ${providerCards}
         </div>
 
         <!-- Device code flow modal -->
         <div class="tp-cloud-device-code hidden" id="cloud-device-code">
-          <div class="tp-cloud-dc-header">Authenticate with GitHub</div>
-          <div class="tp-cloud-dc-step">1. Open <a href="#" class="tp-cloud-dc-url" id="cloud-dc-url">https://github.com/login/device</a></div>
+          <div class="tp-cloud-dc-header" id="cloud-dc-header">Authenticate</div>
+          <div class="tp-cloud-dc-step">1. Open <a href="#" class="tp-cloud-dc-url" id="cloud-dc-url"></a></div>
           <div class="tp-cloud-dc-step">2. Enter code:</div>
           <div class="tp-cloud-dc-code" id="cloud-dc-code">------</div>
           <div class="tp-cloud-dc-status" id="cloud-dc-status">Waiting for authorization…</div>
@@ -1071,30 +1091,34 @@
           ${ws.length === 0 ? `
             <div class="tp-empty">
               <div class="tp-empty-icon">☁️</div>
-              <div class="tp-empty-text">${connected ? 'No codespaces found' : 'Connect a provider to see your cloud environments'}</div>
+              <div class="tp-empty-text">${ws.length === 0 && Object.values(providers).some(p => p?.connected) ? 'No cloud workspaces found' : 'Connect a provider to see your cloud environments'}</div>
             </div>
           ` : ws.map(w => `
-            <div class="tp-cloud-ws-card" data-name="${_esc(w.name)}">
+            <div class="tp-cloud-ws-card" data-name="${_esc(w.name)}" data-provider="${_esc(w.provider || 'github')}">
               <div class="tp-cloud-ws-header">
-                <span class="tp-cloud-ws-name">${_esc(w.displayName)}</span>
-                <span class="tp-cloud-ws-state tp-cloud-ws-state--${w.state}">${_esc(w.state)}</span>
+                <div>
+                  <span class="tp-cloud-ws-name">${_esc(w.displayName)}</span>
+                  <span class="tp-cloud-ws-provider">${_esc(CLOUD_PROVIDERS.find(p => p.id === (w.provider || 'github'))?.label || w.provider || 'Cloud')}</span>
+                </div>
+                <span class="tp-cloud-ws-state tp-cloud-ws-state--${_esc(w.state)}">${_esc(w.state)}</span>
               </div>
               <div class="tp-cloud-ws-meta">
-                <span>${_esc(w.repository)}</span>
-                <span>${_esc(w.machineType)}</span>
+                ${w.repository ? `<span>${_esc(w.repository)}</span>` : ''}
+                ${w.machineType ? `<span>${_esc(w.machineType)}</span>` : ''}
                 ${w.region ? `<span>${_esc(w.region)}</span>` : ''}
+                ${w.url ? `<a class="tp-cloud-ws-url" href="${_esc(w.url)}" target="_blank" rel="noreferrer">Open</a>` : ''}
               </div>
               ${w.gitStatus ? `
                 <div class="tp-cloud-ws-git">
-                  ${_esc(w.gitStatus.ref)}
+                  ${_esc(w.gitStatus.ref || '')}
                   ${w.gitStatus.hasUncommittedChanges ? ' ● uncommitted' : ''}
                   ${w.gitStatus.hasUnpushedChanges ? ' ↑ unpushed' : ''}
                 </div>
               ` : ''}
               <div class="tp-cloud-ws-actions">
-                ${w.state === 'Shutdown' ? `<button class="tp-btn tp-btn-primary tp-cloud-ws-start" data-name="${_esc(w.name)}">Start</button>` : ''}
-                ${w.state === 'Running' ? `<button class="tp-btn tp-btn-secondary tp-cloud-ws-stop" data-name="${_esc(w.name)}">Stop</button>` : ''}
-                <button class="tp-btn tp-btn-danger tp-cloud-ws-delete" data-name="${_esc(w.name)}">Delete</button>
+                ${w.state === 'Shutdown' ? `<button class="tp-btn tp-btn-primary tp-cloud-ws-start" data-provider="${_esc(w.provider || 'github')}" data-name="${_esc(w.name)}">Start</button>` : ''}
+                ${w.state === 'Running' ? `<button class="tp-btn tp-btn-secondary tp-cloud-ws-stop" data-provider="${_esc(w.provider || 'github')}" data-name="${_esc(w.name)}">Stop</button>` : ''}
+                <button class="tp-btn tp-btn-danger tp-cloud-ws-delete" data-provider="${_esc(w.provider || 'github')}" data-name="${_esc(w.name)}">Delete</button>
               </div>
             </div>
           `).join('')}
@@ -1107,11 +1131,16 @@
     const page = $container?.querySelector('.tp-page[data-page="cloud"]');
     if (!page) return;
     const cloudAPI = window.electronAPI?.cloud;
-    let cloudStatus = { connected: false };
+    let cloudStatus = { providers: {} };
     let workspaces = [];
-    try { cloudStatus = await cloudAPI?.status?.('github') || cloudStatus; } catch {}
-    if (cloudStatus.connected) {
-      try { workspaces = await cloudAPI?.listWorkspaces?.() || []; } catch {}
+    try { cloudStatus = await cloudAPI?.status?.() || cloudStatus; } catch {}
+    const providers = cloudStatus.providers || {};
+    for (const provider of CLOUD_PROVIDERS) {
+      if (!providers[provider.id]?.connected) continue;
+      try {
+        const list = await cloudAPI?.listWorkspaces?.(provider.id) || [];
+        workspaces.push(...list.map(w => ({ ...w, provider: w.provider || provider.id })));
+      } catch {}
     }
     page.outerHTML = buildCloudPage(cloudStatus, workspaces);
     bindCloudEvents();
@@ -1129,44 +1158,51 @@
     // Connect button
     main.querySelectorAll('.tp-cloud-connect').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const provider = btn.dataset.provider;
-        if (provider !== 'github') { alert('Only GitHub Codespaces is supported currently.'); return; }
+        const provider = btn.dataset.provider || 'github';
         try {
-          const dc = await cloudAPI.startDeviceCode();
+          const dc = await cloudAPI.startDeviceCode(provider);
           const dcBox = main.querySelector('#cloud-device-code');
+          const dcHeader = main.querySelector('#cloud-dc-header');
           const dcCode = main.querySelector('#cloud-dc-code');
           const dcUrl = main.querySelector('#cloud-dc-url');
           const dcStatus = main.querySelector('#cloud-dc-status');
           const dcCancel = main.querySelector('#cloud-dc-cancel');
+          const providerLabel = CLOUD_PROVIDERS.find(p => p.id === provider)?.label || provider;
           if (dcBox) dcBox.classList.remove('hidden');
+          if (dcHeader) dcHeader.textContent = `Authenticate with ${providerLabel}`;
           if (dcCode) dcCode.textContent = dc.userCode;
-          if (dcUrl) { dcUrl.href = dc.verificationUri; dcUrl.textContent = dc.verificationUri; }
+          if (dcUrl) {
+            const url = dc.verificationUriComplete || dc.verificationUri;
+            dcUrl.href = url;
+            dcUrl.textContent = url;
+          }
           if (dcStatus) dcStatus.textContent = 'Waiting for authorization…';
           btn.disabled = true;
 
           // Open device code URL in default browser
-          try { require('electron').shell.openExternal(dc.verificationUri); } catch {}
+          try { require('electron').shell.openExternal(dc.verificationUriComplete || dc.verificationUri); } catch {}
 
           pollAbort = false;
           const interval = dc.interval ? dc.interval * 1000 : 5000;
-          pollTimer = setInterval(async () => {
+          const pollOnce = async () => {
             if (pollAbort) { clearInterval(pollTimer); return; }
             try {
-              const result = await cloudAPI.pollToken(dc.deviceCode, interval);
+              const result = await cloudAPI.pollToken(provider, dc.deviceCode, interval);
               if (result.token) {
                 clearInterval(pollTimer);
                 if (dcBox) dcBox.classList.add('hidden');
                 await _refreshCloudPage();
               } else if (result.retryAfter) {
                 clearInterval(pollTimer);
-                pollTimer = setInterval(arguments.callee, result.retryAfter);
+                pollTimer = setInterval(pollOnce, result.retryAfter);
               }
             } catch (err) {
               clearInterval(pollTimer);
               if (dcStatus) dcStatus.textContent = err.message;
               setTimeout(() => { if (dcBox) dcBox.classList.add('hidden'); }, 3000);
             }
-          }, interval);
+          };
+          pollTimer = setInterval(pollOnce, interval);
 
           // Cancel button
           if (dcCancel) {
@@ -1194,23 +1230,26 @@
     // Workspace actions
     main.querySelectorAll('.tp-cloud-ws-start').forEach(btn => {
       btn.addEventListener('click', async () => {
+        const provider = btn.dataset.provider || 'github';
         btn.disabled = true; btn.textContent = 'Starting…';
-        try { await cloudAPI.startWorkspace(btn.dataset.name); } catch (err) { alert(err.message); }
+        try { await cloudAPI.startWorkspace(provider, btn.dataset.name); } catch (err) { alert(err.message); }
         await _refreshCloudPage();
       });
     });
     main.querySelectorAll('.tp-cloud-ws-stop').forEach(btn => {
       btn.addEventListener('click', async () => {
+        const provider = btn.dataset.provider || 'github';
         btn.disabled = true; btn.textContent = 'Stopping…';
-        try { await cloudAPI.stopWorkspace(btn.dataset.name); } catch (err) { alert(err.message); }
+        try { await cloudAPI.stopWorkspace(provider, btn.dataset.name); } catch (err) { alert(err.message); }
         await _refreshCloudPage();
       });
     });
     main.querySelectorAll('.tp-cloud-ws-delete').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm(`Delete codespace "${btn.dataset.name}"? This cannot be undone.`)) return;
+        const provider = btn.dataset.provider || 'github';
+        if (!confirm(`Delete workspace "${btn.dataset.name}" from ${provider}? This cannot be undone.`)) return;
         btn.disabled = true; btn.textContent = 'Deleting…';
-        try { await cloudAPI.deleteWorkspace(btn.dataset.name); } catch (err) { alert(err.message); }
+        try { await cloudAPI.deleteWorkspace(provider, btn.dataset.name); } catch (err) { alert(err.message); }
         await _refreshCloudPage();
       });
     });
@@ -1276,9 +1315,14 @@
     let cloudWorkspaces = [];
     if (pageId === 'cloud') {
       try {
-        cloudStatus = await window.electronAPI?.cloud?.status?.('github') || cloudStatus;
-        if (cloudStatus.connected) {
-          cloudWorkspaces = await window.electronAPI?.cloud?.listWorkspaces?.() || [];
+        cloudStatus = await window.electronAPI?.cloud?.status?.() || cloudStatus;
+        const providers = cloudStatus.providers || {};
+        for (const provider of CLOUD_PROVIDERS) {
+          if (!providers[provider.id]?.connected) continue;
+          try {
+            const list = await window.electronAPI?.cloud?.listWorkspaces?.(provider.id) || [];
+            cloudWorkspaces.push(...list.map(w => ({ ...w, provider: w.provider || provider.id })));
+          } catch { /* */ }
         }
       } catch { /* */ }
     }
@@ -1319,5 +1363,6 @@
   window.TabPages = {
     render,
     getPageIds: () => PAGES.map(p => p.id),
+    getCloudProviders: () => CLOUD_PROVIDERS.map(p => ({ ...p })),
   };
 })();

@@ -52,6 +52,17 @@ beforeEach(() => {
   profiles._setProfile({});
 });
 
+function withEnv(key, value, fn) {
+  const previous = process.env[key];
+  process.env[key] = value;
+  try {
+    return fn();
+  } finally {
+    if (previous === undefined) delete process.env[key];
+    else process.env[key] = previous;
+  }
+}
+
 describe('cloud-manager', () => {
   describe('isConnected', () => {
     it('returns false when no token stored', () => {
@@ -89,9 +100,32 @@ describe('cloud-manager', () => {
         deviceCode: 'dc-abc123',
         userCode: 'ABC1-DEF2',
         verificationUri: 'https://github.com/login/device',
+        verificationUriComplete: '',
         expiresIn: 900,
         interval: 5,
       });
+    });
+
+    it('starts Replit device code flow from env endpoints', async () => {
+      const req = withEnv('REPLIT_CLIENT_ID', 'replit-client', async () => {
+        mockRequest({
+          device_code: 'rpl-dc',
+          user_code: 'RPLT-1234',
+          verification_uri: 'https://replit.com/device',
+          verification_uri_complete: 'https://replit.com/device?user_code=RPLT-1234',
+          expires_in: 600,
+          interval: 4,
+        });
+        return cloudManager.startDeviceCodeFlow('replit');
+      });
+
+      const result = await req;
+
+      expect(result.userCode).toBe('RPLT-1234');
+      expect(result.verificationUriComplete).toBe('https://replit.com/device?user_code=RPLT-1234');
+      expect(net.request).toHaveBeenCalledWith(expect.objectContaining({
+        url: 'https://replit.com/api/auth/device/code',
+      }));
     });
 
     it('throws on error response', async () => {
@@ -118,6 +152,18 @@ describe('cloud-manager', () => {
       // Token should be saved
       expect(profiles.updateCurrentProfile).toHaveBeenCalledWith(
         expect.objectContaining({ cloud_github_token: 'ghp_authorized123' })
+      );
+    });
+
+    it('saves Replit token by provider', async () => {
+      await withEnv('REPLIT_CLIENT_ID', 'replit-client', async () => {
+        mockRequest({ access_token: 'rpl_token', scope: 'workspaces' });
+        const result = await cloudManager.pollForToken('replit', 'rpl-dc');
+        expect(result).toEqual({ token: 'rpl_token', scope: 'workspaces' });
+      });
+
+      expect(profiles.updateCurrentProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ cloud_replit_token: 'rpl_token' })
       );
     });
 
@@ -165,6 +211,7 @@ describe('cloud-manager', () => {
             created_at: '2026-01-01T00:00:00Z',
             last_used_at: '2026-06-11T12:00:00Z',
             region: 'East US',
+            web_url: 'https://my-codespace.github.dev',
             git_status: { ref: 'main', has_uncommitted_changes: false, has_unpushed_changes: true },
           },
         ],
@@ -174,6 +221,7 @@ describe('cloud-manager', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
+        provider: 'github',
         name: 'my-codespace',
         displayName: 'My Codespace',
         state: 'Running',
@@ -181,9 +229,49 @@ describe('cloud-manager', () => {
         repository: 'testuser/repo',
         machineType: 'standardLinux',
         region: 'East US',
+        url: 'https://my-codespace.github.dev',
       });
       expect(result[0].gitStatus.ref).toBe('main');
       expect(result[0].gitStatus.hasUnpushedChanges).toBe(true);
+    });
+
+    it('returns formatted Replit workspaces', async () => {
+      profiles._setProfile({ cloud_replit_token: 'rpl_test123' });
+      mockRequest({
+        workspaces: [
+          { name: 'demo', title: 'Demo App', state: 'Running', url: 'https://demo.user.replit.dev', plan: 'Core' },
+        ],
+      });
+
+      const result = await cloudManager.listWorkspaces('replit');
+
+      expect(result).toEqual([expect.objectContaining({
+        provider: 'replit',
+        name: 'demo',
+        displayName: 'Demo App',
+        state: 'Running',
+        machineType: 'Core',
+        url: 'https://demo.user.replit.dev',
+      })]);
+    });
+
+    it('returns formatted Gitpod workspaces', async () => {
+      profiles._setProfile({ cloud_gitpod_token: 'gp_test123' });
+      mockRequest({
+        workspaces: [
+          { id: 'gp-1', description: 'Main branch', latestInstance: { id: 'inst-1', status: { phase: 'running' }, workspaceClass: 'standard' } },
+        ],
+      });
+
+      const result = await cloudManager.listWorkspaces('gitpod');
+
+      expect(result).toEqual([expect.objectContaining({
+        provider: 'gitpod',
+        name: 'gp-1',
+        displayName: 'Main branch',
+        state: 'running',
+        machineType: 'standard',
+      })]);
     });
 
     it('throws when not authenticated', async () => {
@@ -205,10 +293,38 @@ describe('cloud-manager', () => {
 
       const result = await cloudManager.startCodespace('my-codespace');
 
-      expect(result).toEqual({ ok: true, state: 'Starting' });
+      expect(result).toEqual({ ok: true, state: 'Starting', url: '' });
       expect(net.request).toHaveBeenCalledWith(expect.objectContaining({
         method: 'POST',
         url: expect.stringContaining('/start'),
+      }));
+    });
+  });
+
+  describe('workspace actions', () => {
+    it('starts a Replit workspace by provider', async () => {
+      profiles._setProfile({ cloud_replit_token: 'rpl_test123' });
+      mockRequest({ status: 'Starting', url: 'https://demo.user.replit.dev' });
+
+      const result = await cloudManager.startWorkspace('replit', 'demo');
+
+      expect(result).toEqual({ ok: true, state: 'Starting', url: 'https://demo.user.replit.dev' });
+      expect(net.request).toHaveBeenCalledWith(expect.objectContaining({
+        method: 'POST',
+        url: 'https://replit.com/api/workspaces/demo/start',
+      }));
+    });
+
+    it('deletes a Gitpod workspace by provider', async () => {
+      profiles._setProfile({ cloud_gitpod_token: 'gp_test123' });
+      mockRequest({}, 204);
+
+      const result = await cloudManager.deleteWorkspace('gitpod', 'gp-1');
+
+      expect(result.ok).toBe(true);
+      expect(net.request).toHaveBeenCalledWith(expect.objectContaining({
+        method: 'DELETE',
+        url: 'https://gitpod.io/api/workspaces/gp-1',
       }));
     });
   });
@@ -220,7 +336,7 @@ describe('cloud-manager', () => {
 
       const result = await cloudManager.stopCodespace('my-codespace');
 
-      expect(result).toEqual({ ok: true, state: 'Shutdown' });
+      expect(result).toEqual({ ok: true, state: 'Shutdown', url: '' });
     });
   });
 

@@ -155,15 +155,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ── Cloud Sessions ─────────────────────────────────────
   cloud: {
-    status: (provider) => ipcRenderer.invoke('cloud:status', provider),
-    startDeviceCode: () => ipcRenderer.invoke('cloud:start-device-code'),
-    pollToken: (deviceCode, interval) => ipcRenderer.invoke('cloud:poll-token', deviceCode, interval),
-    disconnect: (provider) => ipcRenderer.invoke('cloud:disconnect', provider),
-    listWorkspaces: () => ipcRenderer.invoke('cloud:list-workspaces'),
-    startWorkspace: (name) => ipcRenderer.invoke('cloud:start-workspace', name),
-    stopWorkspace: (name) => ipcRenderer.invoke('cloud:stop-workspace', name),
-    deleteWorkspace: (name) => ipcRenderer.invoke('cloud:delete-workspace', name),
-    connectionDetails: (name) => ipcRenderer.invoke('cloud:connection-details', name),
+    status: () => ipcRenderer.invoke('cloud:status'),
+    startDeviceCode: (provider = 'github') => ipcRenderer.invoke('cloud:start-device-code', provider),
+    pollToken: (provider, deviceCode, interval) => ipcRenderer.invoke('cloud:poll-token', provider, deviceCode, interval),
+    disconnect: (provider = 'github') => ipcRenderer.invoke('cloud:disconnect', provider),
+    listWorkspaces: (provider = 'github') => ipcRenderer.invoke('cloud:list-workspaces', provider),
+    startWorkspace: (provider, name) => ipcRenderer.invoke('cloud:start-workspace', provider, name),
+    stopWorkspace: (provider, name) => ipcRenderer.invoke('cloud:stop-workspace', provider, name),
+    deleteWorkspace: (provider, name) => ipcRenderer.invoke('cloud:delete-workspace', provider, name),
+    connectionDetails: (provider, name) => ipcRenderer.invoke('cloud:connection-details', provider, name),
   },
 
   // ── Window controls ───────────────────────────────────

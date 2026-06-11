@@ -1,25 +1,160 @@
 /**
  * cloud-manager.js — Cloud development environment integration
  *
- * Supports: GitHub Codespaces (device code OAuth flow)
+ * Supports GitHub Codespaces, Replit, and Gitpod device-code OAuth flows.
  * Stores tokens per-profile via profiles.js.
  */
 
 const { net } = require('electron');
 const profiles = require('./profiles');
 
-const GITHUB_DEVICE_CODE_URL = 'https://github.com/login/device/code';
-const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
-const GITHUB_API = 'https://api.github.com';
-
-// OAuth app client_id — replace with your own for production
-const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || 'Iv1.b507a32c69ecf754';
-const GITHUB_SCOPE = 'codespace';
-
 const POLL_INTERVAL_MS = 5000;
 const MAX_POLL_ATTEMPTS = 60; // 5 minutes max
 
-// ── Token storage ─────────────────────────────────────
+const PROVIDERS = {
+  github: {
+    id: 'github',
+    label: 'GitHub Codespaces',
+    icon: '🐙',
+    clientId: () => process.env.GITHUB_CLIENT_ID || 'Iv1.b507a32c69ecf754',
+    deviceCodeUrl: 'https://github.com/login/device/code',
+    tokenUrl: 'https://github.com/login/oauth/access_token',
+    apiBase: 'https://api.github.com',
+    scope: 'codespace',
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+    workspace: {
+      list: '/user/codespaces',
+      start: name => `/user/codespaces/${encodeURIComponent(name)}/start`,
+      stop: name => `/user/codespaces/${encodeURIComponent(name)}/stop`,
+      delete: name => `/user/codespaces/${encodeURIComponent(name)}`,
+      connection: name => `/user/codespaces/${encodeURIComponent(name)}/connections`,
+    },
+    normalizeWorkspace: cs => ({
+      provider: 'github',
+      name: cs.name,
+      displayName: cs.display_name || cs.name,
+      state: cs.state,
+      owner: cs.owner?.login || '',
+      repository: cs.repository?.full_name || '',
+      machineType: cs.machine_type || '',
+      createdAt: cs.created_at,
+      lastUsedAt: cs.last_used_at,
+      billsUsed: cs.billable_owner?.login || '',
+      region: cs.region || '',
+      url: cs.web_url || cs.url || '',
+      gitStatus: cs.git_status ? {
+        ref: cs.git_status.ref,
+        hasUncommittedChanges: cs.git_status.has_uncommitted_changes,
+        hasUnpushedChanges: cs.git_status.has_unpushed_changes,
+      } : null,
+    }),
+  },
+  replit: {
+    id: 'replit',
+    label: 'Replit',
+    icon: '🟧',
+    clientId: () => process.env.REPLIT_CLIENT_ID || '',
+    deviceCodeUrl: () => process.env.REPLIT_DEVICE_CODE_URL || 'https://replit.com/api/auth/device/code',
+    tokenUrl: () => process.env.REPLIT_TOKEN_URL || 'https://replit.com/api/auth/token',
+    apiBase: () => process.env.REPLIT_API_BASE || 'https://replit.com/api',
+    scope: () => process.env.REPLIT_SCOPE || '',
+    headers: { 'Accept': 'application/json' },
+    workspace: {
+      list: '/workspaces',
+      start: name => `/workspaces/${encodeURIComponent(name)}/start`,
+      stop: name => `/workspaces/${encodeURIComponent(name)}/stop`,
+      delete: name => `/workspaces/${encodeURIComponent(name)}`,
+      connection: name => `/workspaces/${encodeURIComponent(name)}`,
+    },
+    normalizeWorkspace: ws => ({
+      provider: 'replit',
+      name: ws.name || ws.id || ws.slug || '',
+      displayName: ws.title || ws.name || ws.url || ws.slug || ws.id || 'Replit Workspace',
+      state: ws.state || ws.status || 'Unknown',
+      owner: ws.owner?.name || ws.owner?.username || ws.user?.name || '',
+      repository: ws.repository?.full_name || ws.repository?.name || ws.url || '',
+      machineType: ws.machine?.name || ws.machine_type || ws.plan || '',
+      createdAt: ws.created_at || ws.createdAt || '',
+      lastUsedAt: ws.updated_at || ws.last_used_at || ws.updatedAt || '',
+      region: ws.region || '',
+      url: ws.url || ws.workspace_url || '',
+    }),
+  },
+  gitpod: {
+    id: 'gitpod',
+    label: 'Gitpod',
+    icon: '🟢',
+    clientId: () => process.env.GITPOD_CLIENT_ID || '',
+    deviceCodeUrl: () => process.env.GITPOD_DEVICE_CODE_URL || 'https://gitpod.io/api/oauth/device-code',
+    tokenUrl: () => process.env.GITPOD_TOKEN_URL || 'https://gitpod.io/api/oauth/token',
+    apiBase: () => process.env.GITPOD_API_BASE || 'https://gitpod.io/api',
+    scope: () => process.env.GITPOD_SCOPE || '',
+    headers: { 'Accept': 'application/json' },
+    workspace: {
+      list: '/workspaces',
+      start: name => `/workspaces/${encodeURIComponent(name)}/start`,
+      stop: name => `/workspaces/${encodeURIComponent(name)}/stop`,
+      delete: name => `/workspaces/${encodeURIComponent(name)}`,
+      connection: name => `/workspaces/${encodeURIComponent(name)}`,
+    },
+    normalizeWorkspace: ws => {
+      const instance = ws.latestInstance || ws;
+      const name = ws.id || instance?.id || '';
+      const repo = ws.context?.repository || {};
+      return {
+        provider: 'gitpod',
+        name,
+        displayName: ws.description || repo.name || name || 'Gitpod Workspace',
+        state: instance?.status?.phase || instance?.status?.name || ws.status || 'Unknown',
+        owner: ws.owner?.name || ws.user?.name || '',
+        repository: repo.full_name || repo.url || repo.name || '',
+        machineType: instance?.workspaceClass || instance?.workspace_class || '',
+        createdAt: ws.creationTime || ws.created_at || '',
+        lastUsedAt: instance?.startedTime || instance?.started_time || '',
+        region: ws.region || '',
+        url: instance?.ideUrl || instance?.ide_url || ws.url || '',
+      };
+    },
+  },
+};
+
+// ── Provider helpers ─────────────────────────────────────
+
+function getCloudProviders() {
+  return Object.values(PROVIDERS).map(p => ({
+    id: p.id,
+    label: p.label,
+    icon: p.icon,
+    configured: !!_clientId(p),
+  }));
+}
+
+function getProvider(provider = 'github') {
+  const p = PROVIDERS[provider];
+  if (!p) throw new Error(`Unknown cloud provider: ${provider}`);
+  return p;
+}
+
+function _clientId(provider) {
+  return typeof provider.clientId === 'function' ? provider.clientId() : provider.clientId;
+}
+
+function _url(provider, value) {
+  return typeof value === 'function' ? value() : value;
+}
+
+function _apiBase(provider) {
+  return _url(provider, provider.apiBase).replace(/\/$/, '');
+}
+
+function _workspacePath(provider, action, name) {
+  const path = provider.workspace[action];
+  if (typeof path !== 'function') throw new Error(`Unsupported workspace action for ${provider.id}: ${action}`);
+  return path(name);
+}
 
 function _getTokenKey(provider) {
   return `cloud_${provider}_token`;
@@ -42,13 +177,19 @@ function _clearToken(provider) {
 
 // ── HTTP helpers ──────────────────────────────────────
 
-function _post(url, body, headers = {}) {
+function _formEncode(body) {
+  return Object.entries(body || {})
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+    .join('&');
+}
+
+function _request(method, url, body, headers = {}) {
   return new Promise((resolve, reject) => {
     const request = net.request({
-      method: 'POST',
+      method,
       url,
       headers: {
-        'Content-Type': 'application/json',
         'Accept': 'application/json',
         ...headers,
       },
@@ -58,101 +199,105 @@ function _post(url, body, headers = {}) {
     request.on('response', (response) => {
       response.on('data', (chunk) => { data += chunk.toString(); });
       response.on('end', () => {
+        if (response.statusCode === 204) {
+          resolve({ ok: true });
+          return;
+        }
+        const raw = data.trim();
+        if (!raw) {
+          resolve({ ok: response.statusCode >= 200 && response.statusCode < 300 });
+          return;
+        }
         try {
-          resolve(JSON.parse(data));
+          resolve(JSON.parse(raw));
         } catch {
-          resolve(data);
+          resolve(raw);
         }
       });
     });
     request.on('error', reject);
-    request.write(JSON.stringify(body));
+    if (body !== undefined && body !== null) request.write(body);
     request.end();
   });
 }
 
-function _get(url, token) {
-  return new Promise((resolve, reject) => {
-    const request = net.request({
-      method: 'GET',
-      url,
-      headers: {
-        'Accept': 'application/vnd.github+json',
-        'Authorization': `Bearer ${token}`,
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-    });
-
-    let data = '';
-    request.on('response', (response) => {
-      response.on('data', (chunk) => { data += chunk.toString(); });
-      response.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch {
-          resolve(data);
-        }
-      });
-    });
-    request.on('error', reject);
-    request.end();
+function _post(url, body, headers = {}, form = false) {
+  return _request('POST', url, form ? _formEncode(body) : JSON.stringify(body || {}), {
+    'Content-Type': form ? 'application/x-www-form-urlencoded' : 'application/json',
+    ...headers,
   });
 }
 
-function _delete(url, token) {
-  return new Promise((resolve, reject) => {
-    const request = net.request({
-      method: 'DELETE',
-      url,
-      headers: {
-        'Accept': 'application/vnd.github+json',
-        'Authorization': `Bearer ${token}`,
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-    });
+function _apiHeaders(provider, token) {
+  return {
+    ...provider.headers,
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+  };
+}
 
-    let data = '';
-    request.on('response', (response) => {
-      response.on('data', (chunk) => { data += chunk.toString(); });
-      response.on('end', () => {
-        resolve({ ok: response.statusCode >= 200 && response.statusCode < 300 });
-      });
-    });
-    request.on('error', reject);
-    request.end();
-  });
+function _get(url, token, provider) {
+  return _request('GET', url, undefined, _apiHeaders(provider, token));
+}
+
+function _delete(url, token, provider) {
+  return _request('DELETE', url, undefined, _apiHeaders(provider, token));
+}
+
+function _apiUrl(provider, path) {
+  return `${_apiBase(provider)}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 // ── Device Code Flow ─────────────────────────────────
 
-async function startDeviceCodeFlow() {
-  const resp = await _post(GITHUB_DEVICE_CODE_URL, {
-    client_id: GITHUB_CLIENT_ID,
-    scope: GITHUB_SCOPE,
-  });
-
+function _normalizeDeviceCode(resp) {
   if (!resp.device_code) {
-    throw new Error(resp.error_description || 'Failed to start device code flow');
+    throw new Error(resp.error_description || resp.error || 'Failed to start device code flow');
   }
 
   return {
     deviceCode: resp.device_code,
     userCode: resp.user_code,
-    verificationUri: resp.verification_uri,
+    verificationUri: resp.verification_uri || '',
+    verificationUriComplete: resp.verification_uri_complete || '',
     expiresIn: resp.expires_in,
     interval: resp.interval,
   };
 }
 
-async function pollForToken(deviceCode, interval = POLL_INTERVAL_MS) {
-  const resp = await _post(GITHUB_TOKEN_URL, {
-    client_id: GITHUB_CLIENT_ID,
+async function startDeviceCodeFlow(provider = 'github') {
+  const p = getProvider(provider);
+  const clientId = _clientId(p);
+  if (!clientId) throw new Error(`Missing ${p.id.toUpperCase()}_CLIENT_ID`);
+
+  const body = { client_id: clientId };
+  const scope = _url(p, p.scope);
+  if (scope) body.scope = scope;
+
+  const resp = await _post(_url(p, p.deviceCodeUrl), body, {}, true);
+  return _normalizeDeviceCode(resp);
+}
+
+function _normalizePollArgs(providerOrDeviceCode, deviceCodeOrInterval, interval) {
+  if (PROVIDERS[providerOrDeviceCode]) {
+    return [providerOrDeviceCode, deviceCodeOrInterval, interval || POLL_INTERVAL_MS];
+  }
+  return ['github', providerOrDeviceCode, deviceCodeOrInterval || POLL_INTERVAL_MS];
+}
+
+async function pollForToken(providerOrDeviceCode, deviceCodeOrInterval, interval) {
+  const [providerName, deviceCode, pollInterval] = _normalizePollArgs(providerOrDeviceCode, deviceCodeOrInterval, interval);
+  const p = getProvider(providerName);
+  const clientId = _clientId(p);
+  if (!clientId) throw new Error(`Missing ${p.id.toUpperCase()}_CLIENT_ID`);
+
+  const resp = await _post(_url(p, p.tokenUrl), {
+    client_id: clientId,
     device_code: deviceCode,
     grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-  });
+  }, {}, true);
 
   if (resp.access_token) {
-    _saveToken('github', resp.access_token);
+    _saveToken(p.id, resp.access_token);
     return { token: resp.access_token, scope: resp.scope };
   }
 
@@ -175,99 +320,114 @@ async function pollForToken(deviceCode, interval = POLL_INTERVAL_MS) {
   throw new Error(resp.error_description || resp.error || 'Token poll failed');
 }
 
-// ── GitHub Codespaces API ────────────────────────────
+// ── Workspace API ─────────────────────────────────────
 
-async function listCodespaces() {
-  const token = _loadToken('github');
-  if (!token) throw new Error('Not authenticated — connect GitHub first');
-
-  const resp = await _get(`${GITHUB_API}/user/codespaces`, token);
-  if (resp.message) throw new Error(resp.message);
-
-  return (resp.codespaces || []).map(cs => ({
-    name: cs.name,
-    displayName: cs.display_name || cs.name,
-    state: cs.state,
-    owner: cs.owner?.login || '',
-    repository: cs.repository?.full_name || '',
-    machineType: cs.machine_type || '',
-    createdAt: cs.created_at,
-    lastUsedAt: cs.last_used_at,
-    billsUsed: cs.billable_owner?.login || '',
-    region: cs.region || '',
-    gitStatus: cs.git_status ? {
-      ref: cs.git_status.ref,
-      hasUncommittedChanges: cs.git_status.has_uncommitted_changes,
-      hasUnpushedChanges: cs.git_status.has_unpushed_changes,
-    } : null,
-  }));
+function _workspaceItems(provider, resp) {
+  if (Array.isArray(resp.codespaces)) return resp.codespaces;
+  if (Array.isArray(resp.workspaces)) return resp.workspaces;
+  if (Array.isArray(resp.items)) return resp.items;
+  if (Array.isArray(resp.data)) return resp.data;
+  return [];
 }
 
-async function startCodespace(name) {
-  const token = _loadToken('github');
-  if (!token) throw new Error('Not authenticated');
-
-  const resp = await _post(`${GITHUB_API}/user/codespaces/${name}/start`, {}, {
-    'Authorization': `Bearer ${token}`,
-    'Accept': 'application/vnd.github+json',
-    'X-GitHub-Api-Version': '2022-11-28',
-  });
-
-  if (resp.message) throw new Error(resp.message);
-  return { ok: true, state: resp.state || 'Starting' };
+function _normalizeWorkspaceArgs(providerOrName, name) {
+  if (PROVIDERS[providerOrName]) return [providerOrName, name];
+  return ['github', providerOrName];
 }
 
-async function stopCodespace(name) {
-  const token = _loadToken('github');
-  if (!token) throw new Error('Not authenticated');
+async function listWorkspaces(provider = 'github') {
+  const p = getProvider(provider);
+  const token = _loadToken(p.id);
+  if (!token) throw new Error(`Not authenticated — connect ${p.label} first`);
 
-  const resp = await _post(`${GITHUB_API}/user/codespaces/${name}/stop`, {}, {
-    'Authorization': `Bearer ${token}`,
-    'Accept': 'application/vnd.github+json',
-    'X-GitHub-Api-Version': '2022-11-28',
-  });
-
+  const resp = await _get(_apiUrl(p, p.workspace.list), token, p);
   if (resp.message) throw new Error(resp.message);
-  return { ok: true, state: resp.state || 'Stopping' };
+
+  return _workspaceItems(p, resp).map(item => p.normalizeWorkspace(item)).filter(ws => ws.name);
 }
 
-async function deleteCodespace(name) {
-  const token = _loadToken('github');
+async function startWorkspace(providerOrName, name) {
+  const [providerName, workspaceName] = _normalizeWorkspaceArgs(providerOrName, name);
+  const p = getProvider(providerName);
+  const token = _loadToken(p.id);
   if (!token) throw new Error('Not authenticated');
 
-  const result = await _delete(`${GITHUB_API}/user/codespaces/${name}`, token);
+  const resp = await _post(_apiUrl(p, _workspacePath(p, 'start', workspaceName)), {}, _apiHeaders(p, token));
+  if (resp.message) throw new Error(resp.message);
+  return { ok: true, state: resp.state || resp.status || 'Starting', url: resp.url || '' };
+}
+
+async function stopWorkspace(providerOrName, name) {
+  const [providerName, workspaceName] = _normalizeWorkspaceArgs(providerOrName, name);
+  const p = getProvider(providerName);
+  const token = _loadToken(p.id);
+  if (!token) throw new Error('Not authenticated');
+
+  const resp = await _post(_apiUrl(p, _workspacePath(p, 'stop', workspaceName)), {}, _apiHeaders(p, token));
+  if (resp.message) throw new Error(resp.message);
+  return { ok: true, state: resp.state || resp.status || 'Stopping', url: resp.url || '' };
+}
+
+async function deleteWorkspace(providerOrName, name) {
+  const [providerName, workspaceName] = _normalizeWorkspaceArgs(providerOrName, name);
+  const p = getProvider(providerName);
+  const token = _loadToken(p.id);
+  if (!token) throw new Error('Not authenticated');
+
+  const result = await _delete(_apiUrl(p, _workspacePath(p, 'delete', workspaceName)), token, p);
   return result;
 }
 
-async function getConnectionDetails(name) {
-  const token = _loadToken('github');
+async function getConnectionDetails(providerOrName, name) {
+  const [providerName, workspaceName] = _normalizeWorkspaceArgs(providerOrName, name);
+  const p = getProvider(providerName);
+  const token = _loadToken(p.id);
   if (!token) throw new Error('Not authenticated');
 
-  const resp = await _get(`${GITHUB_API}/user/codespaces/${name}/connections`, token);
+  const resp = await _get(_apiUrl(p, _workspacePath(p, 'connection', workspaceName)), token, p);
   if (resp.message) throw new Error(resp.message);
-
   return resp;
 }
 
+// Backward-compatible GitHub-only aliases
+const listCodespaces = () => listWorkspaces('github');
+const startCodespace = name => startWorkspace('github', name);
+const stopCodespace = name => stopWorkspace('github', name);
+const deleteCodespace = name => deleteWorkspace('github', name);
+
 // ── Status ───────────────────────────────────────────
 
+function getProviderStatus() {
+  return Object.fromEntries(Object.keys(PROVIDERS).map(id => [id, { connected: isConnected(id) }]));
+}
+
 function isConnected(provider = 'github') {
-  return !!_loadToken(provider);
+  return !!_loadToken(getProvider(provider).id);
 }
 
 function disconnect(provider = 'github') {
-  _clearToken(provider);
+  _clearToken(getProvider(provider).id);
   return { ok: true };
 }
 
 module.exports = {
+  getCloudProviders,
+  getProviderStatus,
   startDeviceCodeFlow,
   pollForToken,
+  listWorkspaces,
+  startWorkspace,
+  stopWorkspace,
+  deleteWorkspace,
+  getConnectionDetails,
   listCodespaces,
   startCodespace,
   stopCodespace,
   deleteCodespace,
-  getConnectionDetails,
   isConnected,
   disconnect,
+  // Internal-ish exports used by tests/debugging.
+  PROVIDERS,
+  POLL_INTERVAL_MS,
+  MAX_POLL_ATTEMPTS,
 };

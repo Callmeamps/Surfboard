@@ -58,6 +58,16 @@ describe('TabPages', () => {
       chat: {
         send: jest.fn().mockResolvedValue('test response'),
       },
+      cloud: {
+        status: jest.fn().mockResolvedValue({ providers: { github: { connected: false }, replit: { connected: false }, gitpod: { connected: false } } }),
+        startDeviceCode: jest.fn(),
+        pollToken: jest.fn(),
+        disconnect: jest.fn(),
+        listWorkspaces: jest.fn(),
+        startWorkspace: jest.fn(),
+        stopWorkspace: jest.fn(),
+        deleteWorkspace: jest.fn(),
+      },
     };
 
     // Reset modules
@@ -263,6 +273,67 @@ describe('TabPages', () => {
     container.querySelector('#tp-wf-save').click();
     expect(container.innerHTML).toContain('My Workflow');
     expect(container.innerHTML).toContain('saved');
+  });
+
+  // ── Cloud page ────────────────────────────────────────────
+
+  test('render cloud page shows GitHub, Replit, and Gitpod providers', async () => {
+    await window.TabPages.render(container, 'cloud', {});
+
+    expect(container.innerHTML).toContain('GitHub Codespaces');
+    expect(container.innerHTML).toContain('Replit');
+    expect(container.innerHTML).toContain('Gitpod');
+    expect(container.innerHTML).toContain('tp-cloud-connect');
+  });
+
+  test('render cloud page aggregates connected provider workspaces', async () => {
+    window.electronAPI.cloud.status.mockResolvedValue({
+      providers: {
+        github: { connected: true },
+        replit: { connected: true },
+        gitpod: { connected: false },
+      },
+    });
+    window.electronAPI.cloud.listWorkspaces
+      .mockResolvedValueOnce([{ name: 'gh', displayName: 'GitHub WS', state: 'Running', provider: 'github' }])
+      .mockResolvedValueOnce([{ name: 'rpl', displayName: 'Replit WS', state: 'Shutdown', provider: 'replit' }]);
+
+    await window.TabPages.render(container, 'cloud', {});
+
+    expect(window.electronAPI.cloud.listWorkspaces).toHaveBeenCalledWith('github');
+    expect(window.electronAPI.cloud.listWorkspaces).toHaveBeenCalledWith('replit');
+    expect(window.electronAPI.cloud.listWorkspaces).not.toHaveBeenCalledWith('gitpod');
+    expect(container.innerHTML).toContain('GitHub WS');
+    expect(container.innerHTML).toContain('Replit WS');
+  });
+
+  test('cloud connect starts provider device code and polls with provider', async () => {
+    window.electronAPI.cloud.startDeviceCode.mockResolvedValue({
+      deviceCode: 'dc-1',
+      userCode: 'ABCD',
+      verificationUri: 'https://example.test/device',
+      interval: 1,
+    });
+    window.electronAPI.cloud.pollToken.mockResolvedValueOnce({ pending: true }).mockResolvedValueOnce({ token: 'tok' });
+    window.electronAPI.cloud.status.mockResolvedValue({ providers: { github: { connected: false }, replit: { connected: false }, gitpod: { connected: false } } });
+    window.electronAPI.cloud.listWorkspaces.mockResolvedValue([]);
+
+    await window.TabPages.render(container, 'cloud', {});
+    container.querySelector('.tp-cloud-connect[data-provider="replit"]').click();
+    await new Promise(r => setTimeout(r, 1300));
+
+    expect(window.electronAPI.cloud.startDeviceCode).toHaveBeenCalledWith('replit');
+    expect(window.electronAPI.cloud.pollToken).toHaveBeenCalledWith('replit', 'dc-1', 1000);
+  });
+
+  test('cloud workspace actions include provider', async () => {
+    window.electronAPI.cloud.status.mockResolvedValue({ providers: { gitpod: { connected: true } } });
+    window.electronAPI.cloud.listWorkspaces.mockResolvedValue([{ name: 'gp-1', displayName: 'Gitpod WS', state: 'Shutdown', provider: 'gitpod' }]);
+
+    await window.TabPages.render(container, 'cloud', {});
+    container.querySelector('.tp-cloud-ws-start').click();
+
+    expect(window.electronAPI.cloud.startWorkspace).toHaveBeenCalledWith('gitpod', 'gp-1');
   });
 
   // ── Navigation ───────────────────────────────────────────

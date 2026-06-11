@@ -445,40 +445,40 @@ function register() {
   // ── Cloud Sessions ───────────────────────────────────────
   const cloudManager = require('./cloud-manager');
 
-  ipcMain.handle('cloud:status', (_event, provider) => {
-    return { connected: cloudManager.isConnected(provider || 'github') };
+  ipcMain.handle('cloud:status', () => {
+    return { providers: cloudManager.getProviderStatus() };
   });
 
-  ipcMain.handle('cloud:start-device-code', async () => {
-    return cloudManager.startDeviceCodeFlow();
+  ipcMain.handle('cloud:start-device-code', async (_event, provider) => {
+    return cloudManager.startDeviceCodeFlow(provider || 'github');
   });
 
-  ipcMain.handle('cloud:poll-token', async (_event, deviceCode, interval) => {
-    return cloudManager.pollForToken(deviceCode, interval);
+  ipcMain.handle('cloud:poll-token', async (_event, provider, deviceCode, interval) => {
+    return cloudManager.pollForToken(provider || 'github', deviceCode, interval);
   });
 
   ipcMain.handle('cloud:disconnect', (_event, provider) => {
     return cloudManager.disconnect(provider || 'github');
   });
 
-  ipcMain.handle('cloud:list-workspaces', async () => {
-    return cloudManager.listCodespaces();
+  ipcMain.handle('cloud:list-workspaces', async (_event, provider) => {
+    return cloudManager.listWorkspaces(provider || 'github');
   });
 
-  ipcMain.handle('cloud:start-workspace', async (_event, name) => {
-    return cloudManager.startCodespace(name);
+  ipcMain.handle('cloud:start-workspace', async (_event, provider, name) => {
+    return cloudManager.startWorkspace(provider || 'github', name);
   });
 
-  ipcMain.handle('cloud:stop-workspace', async (_event, name) => {
-    return cloudManager.stopCodespace(name);
+  ipcMain.handle('cloud:stop-workspace', async (_event, provider, name) => {
+    return cloudManager.stopWorkspace(provider || 'github', name);
   });
 
-  ipcMain.handle('cloud:delete-workspace', async (_event, name) => {
-    return cloudManager.deleteCodespace(name);
+  ipcMain.handle('cloud:delete-workspace', async (_event, provider, name) => {
+    return cloudManager.deleteWorkspace(provider || 'github', name);
   });
 
-  ipcMain.handle('cloud:connection-details', async (_event, name) => {
-    return cloudManager.getConnectionDetails(name);
+  ipcMain.handle('cloud:connection-details', async (_event, provider, name) => {
+    return cloudManager.getConnectionDetails(provider || 'github', name);
   });
 
   // ── Window controls ───────────────────────────────────
