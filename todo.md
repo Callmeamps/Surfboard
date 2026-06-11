@@ -1,20 +1,39 @@
-# Handoff Follow-up Tasks
+# Build Order — Next Session
 
-## Single-session tasks
+## Priority 1 (ship next)
 
-- [x] E2E smoke test — launch Electron, verify right sidebar buttons, canvas pages, extensions load
-- [x] Verify shell shortcut `Ctrl+Shift+S` doesn't conflict with anything (was changed from `Ctrl+Shift+X`) — tested via E2E, no conflicts
-- [x] Check if finding #7 (shell conflict) was properly tracked — fixed in PR #4 (84d89db), shortcut changed to Ctrl+Shift+S
-- [x] Create CONTEXT.md at repo root — domain glossary, key concepts, terminology
-- [x] Create docs/adr/ with initial ADRs — architecture, profiles, miniapps sandbox
-- [x] E2E canvas pages native mode check — verify drawElementImage availability
+- [ ] Extension popup support — render extension popups in sidecar panel (bead riced-chromium-ohq)
+  - [ ] IPC handler for extension popup URL + badge text
+  - [ ] Preload method to get popup info
+  - [ ] Sidecar panel: iframe-based popup renderer
+  - [ ] Badge count display on extensions button
+  - [ ] Tests for popup IPC + renderer
 
-## Beads cross-refs (all closed)
+- [ ] Tab group coloring — color picker per group (bead riced-chromium-8xc)
+  - [ ] Add `color` field to group schema in tab-manager
+  - [ ] IPC handler for group color update
+  - [ ] Color picker in group context menu
+  - [ ] CSS: colored group header + left border on grouped tabs
+  - [ ] Persist group color in session
+  - [ ] Tests for group color operations
 
-- riced-chromium-57t — Multi-profile support ✓
-- riced-chromium-omi — Canvas pages real data wiring ✓
-- riced-chromium-xow — Miniapps sandboxing ✓
-- riced-chromium-y2k — HTML-in-Canvas native rendering ✓
-- riced-chromium-wn4 — CONTEXT.md ✓
-- riced-chromium-25r — docs/adr/ ✓
-- riced-chromium-7bq — E2E canvas pages check ✓
+## Priority 2 (follow-up)
+
+- [ ] Custom theme builder — create/edit/save themes (bead riced-chromium-4gz)
+- [ ] Cloud providers — Replit + Gitpod device code flows (bead riced-chromium-9zu)
+- [ ] SSH reconnection — auto-reconnect on network drop (bead riced-chromium-k85)
+
+## Priority 3 (backlog)
+
+- [ ] Shortcut menu dedup — unify data sources (bead riced-chromium-u0t)
+
+## Session completed this round
+
+- [x] Tab groups — drag-to-assign, collapse, session persistence (545 tests)
+- [x] Cloud sessions — GitHub Codespaces OAuth, workspace CRUD (561 tests)
+
+## Stats
+
+- Tests: 561 passing, 31 suites
+- Beads: 6 open, 0 blocked
+- Last push: 01ba919
