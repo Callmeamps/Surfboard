@@ -23,6 +23,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('tab-lifecycle:suspend', listener);
       return () => ipcRenderer.removeListener('tab-lifecycle:suspend', listener);
     },
+
+    // ── Tab Groups ───────────────────────────────────────
+    groups: () => ipcRenderer.invoke('tabs:groups:list'),
+    createGroup: (title) => ipcRenderer.invoke('tabs:groups:create', title),
+    assignToGroup: (tabId, groupId) => ipcRenderer.invoke('tabs:groups:assign', tabId, groupId),
+    removeFromGroup: (tabId) => ipcRenderer.invoke('tabs:groups:remove', tabId),
+    toggleGroupCollapse: (groupId) => ipcRenderer.invoke('tabs:groups:collapse', groupId),
+    deleteGroup: (groupId) => ipcRenderer.invoke('tabs:groups:delete', groupId),
   },
 
   // ── Sidebar ───────────────────────────────────────────

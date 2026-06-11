@@ -58,12 +58,14 @@ function _getWindowBounds() {
 function save(tabManager) {
   const allTabs = tabManager.getAll();
   const activeId = tabManager.getActiveId();
+  const groups = tabManager.getGroups();
 
   const tabs = allTabs.map(t => ({
     url: t.url || 'about:blank',
     title: t.title || '',
     favicon: t.favicon || '',
     active: t.id === activeId,
+    groupId: t.groupId || null,
   }));
 
   // Don't save empty sessions — keep previous save
@@ -71,6 +73,7 @@ function save(tabManager) {
 
   const session = {
     tabs,
+    groups,
     activeTabId: activeId,
     windowBounds: _getWindowBounds(),
     savedAt: Date.now(),

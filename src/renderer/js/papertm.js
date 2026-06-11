@@ -482,19 +482,18 @@
       e.preventDefault();
       if (_dragCount === 0) return;
 
-      // Visual drop-indicator on target tab
-      const target = e.target.closest('.tab');
-      _deps.tabList.querySelectorAll('.tab').forEach(el => { el.style.opacity = ''; });
+      // Visual drop-indicator on target tab or group header
+      const target = e.target.closest('.tab') || e.target.closest('.tab-group-header');
+      _deps.tabList.querySelectorAll('.tab, .tab-group-header').forEach(el => { el.style.opacity = ''; });
       if (target) {
-        const rect = target.getBoundingClientRect();
-        target.style.opacity = e.clientY > rect.top + rect.height * 0.5 ? '0.7' : '0.85';
+        target.style.opacity = '0.7';
       }
     });
 
     _deps.tabList.addEventListener('dragleave', (e) => {
       // Only clear when leaving the tabList entirely
       if (!e.relatedTarget || !_deps.tabList.contains(e.relatedTarget)) {
-        _deps.tabList.querySelectorAll('.tab').forEach(el => { el.style.opacity = ''; });
+        _deps.tabList.querySelectorAll('.tab, .tab-group-header').forEach(el => { el.style.opacity = ''; });
       }
     });
 
@@ -502,13 +501,22 @@
       e.preventDefault();
       if (_dragCount === 0) return;
 
-      _deps.tabList.querySelectorAll('.tab').forEach(el => { el.style.opacity = ''; });
+      _deps.tabList.querySelectorAll('.tab, .tab-group-header').forEach(el => { el.style.opacity = ''; });
 
       const draggedEl = _deps.tabList.querySelector('.dragging');
-      const target = e.target.closest('.tab');
-      if (!draggedEl || !target) return;
-
+      if (!draggedEl) return;
       const draggedId = draggedEl.dataset.tabId;
+
+      // Drop onto group header → assign to group
+      const groupHeader = e.target.closest('.tab-group-header');
+      if (groupHeader && groupHeader.dataset.groupId) {
+        _deps.tabsIPC.assignToGroup?.(draggedId, groupHeader.dataset.groupId);
+        return;
+      }
+
+      // Drop onto tab → reorder
+      const target = e.target.closest('.tab');
+      if (!target) return;
       const targetId = target.dataset.tabId;
       if (draggedId === targetId) return;
 

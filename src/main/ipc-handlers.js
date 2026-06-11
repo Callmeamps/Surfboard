@@ -111,6 +111,31 @@ function register() {
     return tabManager.update(tabId, patch);
   });
 
+  // ── Tab Groups ─────────────────────────────────────────
+  ipcMain.handle('tabs:groups:list', () => {
+    return tabManager.getGroups();
+  });
+
+  ipcMain.handle('tabs:groups:create', (_event, title) => {
+    return tabManager.createGroup(title);
+  });
+
+  ipcMain.handle('tabs:groups:assign', (_event, tabId, groupId) => {
+    return tabManager.assignToGroup(tabId, groupId);
+  });
+
+  ipcMain.handle('tabs:groups:remove', (_event, tabId) => {
+    return tabManager.removeFromGroup(tabId);
+  });
+
+  ipcMain.handle('tabs:groups:collapse', (_event, groupId) => {
+    return tabManager.toggleGroupCollapse(groupId);
+  });
+
+  ipcMain.handle('tabs:groups:delete', (_event, groupId) => {
+    return tabManager.deleteGroup(groupId);
+  });
+
   ipcMain.handle('tabs:go-back', (_event, tabId) => {
     const wc = tabLifecycle.getWebContents(tabId);
     if (wc && wc.canGoBack()) wc.goBack();

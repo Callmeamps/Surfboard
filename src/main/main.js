@@ -152,14 +152,34 @@ app.whenReady().then(async () => {
 
     // Recreate tabs from saved session
     let restoredActiveId = null;
-    for (const t of savedSession.tabs) {
+    const restoredTabIds = [];
+    for (let i = 0; i < savedSession.tabs.length; i++) {
+      const t = savedSession.tabs[i];
       const created = tabManager.create(t.url || 'about:blank');
       if (t.title) tabManager.update(created.id, { title: t.title });
       if (t.favicon) tabManager.update(created.id, { favicon: t.favicon });
       if (t.active) restoredActiveId = created.id;
+      restoredTabIds[i] = created.id;
     }
     // Activate the saved active tab
     if (restoredActiveId) tabManager.switch(restoredActiveId);
+
+    // Restore groups — map old group IDs to new group IDs
+    if (savedSession.groups?.length) {
+      const groupIdMap = new Map();
+      for (const g of savedSession.groups) {
+        const group = tabManager.createGroup(g.title);
+        groupIdMap.set(g.id, group.id);
+      }
+      // Assign tabs to their groups using the saved groupId
+      for (let i = 0; i < savedSession.tabs.length; i++) {
+        const savedGroupId = savedSession.tabs[i].groupId;
+        if (savedGroupId && groupIdMap.has(savedGroupId)) {
+          tabManager.assignToGroup(restoredTabIds[i], groupIdMap.get(savedGroupId));
+        }
+      }
+    }
+
     console.log(`[main] restored ${savedSession.tabs.length} tabs from session`);
   } else {
     tabManager.create('about:blank');

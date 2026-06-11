@@ -30,6 +30,9 @@ beforeEach(() => {
   // tab-manager doesn't expose a reset, so we close all existing tabs
   const all = tabManager.getAll();
   all.forEach(t => tabManager.close(t.id));
+  // Clean up groups
+  const groups = tabManager.getGroups();
+  groups.forEach(g => tabManager.deleteGroup(g.id));
   jest.clearAllMocks();
 });
 
@@ -106,5 +109,102 @@ describe('tab-manager', () => {
   test('idempotent: create with about:blank', () => {
     const tab = tabManager.create('about:blank');
     expect(tab.url).toBe('about:blank');
+  });
+
+  // ── Tab Groups ──────────────────────────────────────────
+
+  test('createGroup() returns a group with id and title', () => {
+    const group = tabManager.createGroup('Research');
+    expect(group.id).toBeDefined();
+    expect(group.title).toBe('Research');
+    expect(group.collapsed).toBe(false);
+    expect(group.tabIds).toEqual([]);
+  });
+
+  test('assignToGroup() adds tab to group', () => {
+    const tab = tabManager.create('https://one.com');
+    const group = tabManager.createGroup('Work');
+
+    const result = tabManager.assignToGroup(tab.id, group.id);
+
+    expect(result.groupId).toBe(group.id);
+    const groups = tabManager.getGroups();
+    expect(groups[0].tabIds).toContain(tab.id);
+  });
+
+  test('assignToGroup() removes tab from previous group', () => {
+    const tab = tabManager.create('https://one.com');
+    const g1 = tabManager.createGroup('Group A');
+    const g2 = tabManager.createGroup('Group B');
+
+    tabManager.assignToGroup(tab.id, g1.id);
+    tabManager.assignToGroup(tab.id, g2.id);
+
+    const groups = tabManager.getGroups();
+    const groupA = groups.find(g => g.id === g1.id);
+    const groupB = groups.find(g => g.id === g2.id);
+    expect(groupA.tabIds).not.toContain(tab.id);
+    expect(groupB.tabIds).toContain(tab.id);
+  });
+
+  test('removeFromGroup() unassigns tab', () => {
+    const tab = tabManager.create('https://one.com');
+    const tab2 = tabManager.create('https://two.com');
+    const group = tabManager.createGroup('Work');
+    tabManager.assignToGroup(tab.id, group.id);
+    tabManager.assignToGroup(tab2.id, group.id);
+
+    const result = tabManager.removeFromGroup(tab.id);
+
+    expect(result.groupId).toBeNull();
+    const groups = tabManager.getGroups();
+    expect(groups.find(g => g.id === group.id).tabIds).toEqual([tab2.id]);
+  });
+
+  test('toggleGroupCollapse() flips collapsed state', () => {
+    const group = tabManager.createGroup('Work');
+    expect(group.collapsed).toBe(false);
+
+    const result = tabManager.toggleGroupCollapse(group.id);
+    expect(result.collapsed).toBe(true);
+
+    const result2 = tabManager.toggleGroupCollapse(group.id);
+    expect(result2.collapsed).toBe(false);
+  });
+
+  test('deleteGroup() removes group and unassigns tabs', () => {
+    const tab = tabManager.create('https://one.com');
+    const group = tabManager.createGroup('Work');
+    tabManager.assignToGroup(tab.id, group.id);
+
+    const deleted = tabManager.deleteGroup(group.id);
+    expect(deleted).toBe(true);
+
+    const tabAfter = tabManager.get(tab.id);
+    expect(tabAfter.groupId).toBeNull();
+    expect(tabManager.getGroups()).toHaveLength(0);
+  });
+
+  test('close() on grouped tab removes it from group', () => {
+    const t1 = tabManager.create('https://one.com');
+    const t2 = tabManager.create('https://two.com');
+    const group = tabManager.createGroup('Work');
+    tabManager.assignToGroup(t1.id, group.id);
+    tabManager.assignToGroup(t2.id, group.id);
+
+    tabManager.close(t1.id);
+
+    const groups = tabManager.getGroups();
+    expect(groups[0].tabIds).toEqual([t2.id]);
+  });
+
+  test('close() on last tab in group deletes empty group', () => {
+    const tab = tabManager.create('https://one.com');
+    const group = tabManager.createGroup('Work');
+    tabManager.assignToGroup(tab.id, group.id);
+
+    tabManager.close(tab.id);
+
+    expect(tabManager.getGroups()).toHaveLength(0);
   });
 });

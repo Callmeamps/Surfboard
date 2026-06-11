@@ -1014,7 +1014,11 @@
     } catch (e) { console.warn('[init] nav buttons:', e.message); }
     try {
       window.PaperTM?.init({ tabList: $tabList, wvContainer: $wvContainer, addrInput: $addrInput, ntp: $newTabPage, storage: _storage, tabsIPC: _tabs, minimapContainer: $minimapContainer, settings, extensions: [], profiles: [], activeProfile: 'default' });
-      _tabs.onUpdated?.((d) => window.PaperTM?.onTabsUpdated(d));
+      _tabs.onUpdated?.(async (d) => {
+        window.PaperTM?.onTabsUpdated(d);
+        const groups = await _tabs.groups?.();
+        if (groups) window.PaperTM?.setGroups(groups);
+      });
     } catch (e) { console.warn('[init] PaperTM:', e.message); }
     try {
       window.electronAPI?.on?.('app:shortcut', (_event, action) => _handleShortcut(action));

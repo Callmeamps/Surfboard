@@ -41,6 +41,7 @@ function makeTabManager(tabs, activeId) {
   return {
     getAll: jest.fn(() => tabs),
     getActiveId: jest.fn(() => activeId),
+    getGroups: jest.fn(() => []),
   };
 }
 
@@ -67,9 +68,10 @@ describe('session-persistence', () => {
       expect(result).toBe(true);
       expect(profiles.saveProfileSession).toHaveBeenCalledWith(expect.objectContaining({
         tabs: [
-          { url: 'https://example.com', title: 'Example', favicon: '🌐', active: true },
-          { url: 'https://github.com', title: 'GitHub', favicon: '🐙', active: false },
+          { url: 'https://example.com', title: 'Example', favicon: '🌐', active: true, groupId: null },
+          { url: 'https://github.com', title: 'GitHub', favicon: '🐙', active: false, groupId: null },
         ],
+        groups: [],
         activeTabId: 'tab-1',
         windowBounds: { x: 100, y: 200, width: 1400, height: 900 },
         savedAt: expect.any(Number),
