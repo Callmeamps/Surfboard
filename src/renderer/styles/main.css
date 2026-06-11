@@ -2586,7 +2586,7 @@ html, body {
   padding: 10px 12px; border-bottom: 1px solid var(--border);
   font-size: 12px; font-weight: 600; color: var(--text-dim);
 }
-.tp-ssh-connections-list {
+.tp-ssh-connections-list, .tp-ssh-env-list {
   flex: 1; overflow-y: auto; padding: 4px;
 }
 .tp-ssh-conn-item {

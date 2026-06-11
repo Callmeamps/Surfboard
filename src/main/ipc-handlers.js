@@ -345,6 +345,23 @@ function register() {
     return true;
   });
 
+  // ── Dev Environments ─────────────────────────────────
+  ipcMain.handle('storage:environments:list', () => {
+    return profiles.getProfileEnvironments();
+  });
+
+  ipcMain.handle('storage:environments:add', (_event, env) => {
+    return profiles.addProfileEnvironment(env);
+  });
+
+  ipcMain.handle('storage:environments:update', (_event, id, patch) => {
+    return profiles.updateProfileEnvironment(id, patch);
+  });
+
+  ipcMain.handle('storage:environments:remove', (_event, id) => {
+    return profiles.removeProfileEnvironment(id);
+  });
+
   // ── Cookie management ────────────────────────────────
   ipcMain.handle('cookies:get', async (_event, filter) => {
     const ses = session.defaultSession;

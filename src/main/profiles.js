@@ -387,6 +387,51 @@ function clearProfileSession(profileId) {
   }
 }
 
+// ── Dev Environments ───────────────────────────────────
+
+function getProfileEnvironments(profileId) {
+  _ensureInit();
+  const pid = profileId || getCurrentProfileId();
+  const data = _readProfileData(pid);
+  return data?.environments ? [...data.environments] : [];
+}
+
+function addProfileEnvironment(env, profileId) {
+  _ensureInit();
+  const pid = profileId || getCurrentProfileId();
+  const data = _readProfileData(pid) || { bookmarks: [], history: [], settings: {}, environments: [] };
+  if (!Array.isArray(data.environments)) data.environments = [];
+  const id = env.id || `env-${Date.now().toString(36)}`;
+  const newEnv = { id, ...env, createdAt: Date.now() };
+  data.environments.push(newEnv);
+  _writeProfileData(pid, data);
+  return newEnv;
+}
+
+function updateProfileEnvironment(id, patch, profileId) {
+  _ensureInit();
+  const pid = profileId || getCurrentProfileId();
+  const data = _readProfileData(pid);
+  if (!data?.environments) return null;
+  const idx = data.environments.findIndex(e => e.id === id);
+  if (idx === -1) return null;
+  Object.assign(data.environments[idx], patch);
+  _writeProfileData(pid, data);
+  return { ...data.environments[idx] };
+}
+
+function removeProfileEnvironment(id, profileId) {
+  _ensureInit();
+  const pid = profileId || getCurrentProfileId();
+  const data = _readProfileData(pid);
+  if (!data?.environments) return false;
+  const idx = data.environments.findIndex(e => e.id === id);
+  if (idx === -1) return false;
+  data.environments.splice(idx, 1);
+  _writeProfileData(pid, data);
+  return true;
+}
+
 // ── Session partition ──────────────────────────────────
 
 function getSessionPartition(profileId) {
@@ -454,6 +499,12 @@ module.exports = {
   saveProfileSession,
   loadProfileSession,
   clearProfileSession,
+
+  // Dev Environments
+  getProfileEnvironments,
+  addProfileEnvironment,
+  updateProfileEnvironment,
+  removeProfileEnvironment,
 
   // Session
   getSessionPartition,

@@ -94,6 +94,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     loadTabOrder: () => ipcRenderer.invoke('storage:tab-order:get'),
     saveTabOrder: (order) => ipcRenderer.invoke('storage:tab-order:save', order),
     clearTabOrder: () => ipcRenderer.invoke('storage:tab-order:clear'),
+    environments: {
+      list: () => ipcRenderer.invoke('storage:environments:list'),
+      add: (env) => ipcRenderer.invoke('storage:environments:add', env),
+      update: (id, patch) => ipcRenderer.invoke('storage:environments:update', id, patch),
+      remove: (id) => ipcRenderer.invoke('storage:environments:remove', id),
+    },
   },
 
   // ── Extensions ────────────────────────────────────────

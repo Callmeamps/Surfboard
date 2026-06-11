@@ -192,7 +192,7 @@
       case 'workflows':  return buildWorkflowsPage();
       case 'links':      return buildLinksPage(data?.bookmarks);
       case 'cookies':    return buildCookiesPage(data?.cookies);
-      case 'ssh':         return buildSSHPage(data?.sshConnections, data?.sshState);
+      case 'ssh':         return buildSSHPage(data?.sshConnections, data?.sshState, data?.sshEnvironments);
       default:           return '<div class="tp-empty"><div class="tp-empty-text">Page not found</div></div>';
     }
   }
@@ -748,8 +748,9 @@
   let _sshUnsubOutput = null;
   let _sshUnsubStatus = null;
 
-  function buildSSHPage(connections, state) {
+  function buildSSHPage(connections, state, environments) {
     const conns = connections || [];
+    const envs = environments || [];
     const isConnected = state?.connected || false;
 
     return html`
@@ -777,6 +778,26 @@
                     <div class="tp-ssh-conn-host">${_esc(c.username)}@${_esc(c.host)}:${c.port}</div>
                   </div>
                   <button class="tp-btn tp-btn-sm tp-btn-danger tp-ssh-conn-delete" data-conn-delete="${_esc(c.id)}">🗑️</button>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="tp-ssh-sidebar-header" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+              <span>Environments</span>
+              <button class="tp-btn tp-btn-sm" id="ssh-add-env">+</button>
+            </div>
+            <div class="tp-ssh-env-list">
+              ${envs.length === 0 ? `
+                <div class="tp-empty">
+                  <div class="tp-empty-text" style="font-size:11px">No saved environments</div>
+                </div>
+              ` : envs.map(e => `
+                <div class="tp-ssh-env-item" data-env-id="${_esc(e.id)}">
+                  <div class="tp-ssh-conn-info">
+                    <div class="tp-ssh-conn-name">${_esc(e.name)}</div>
+                    <div class="tp-ssh-conn-host">${_esc(e.workdir || '~')}</div>
+                  </div>
+                  <button class="tp-btn tp-btn-sm tp-btn-danger tp-ssh-env-delete" data-env-delete="${_esc(e.id)}">🗑️</button>
                 </div>
               `).join('')}
             </div>
@@ -933,6 +954,66 @@
         _refreshSSHPage(main);
       });
     });
+
+    // Add environment
+    main.querySelector('#ssh-add-env')?.addEventListener('click', async () => {
+      const name = prompt('Environment name:');
+      if (!name) return;
+      const workdir = prompt('Working directory:', '~') || '~';
+      const envVars = prompt('Environment variables (KEY=value, comma-separated):', '');
+      const vars = {};
+      if (envVars) {
+        envVars.split(',').forEach(pair => {
+          const [k, ...v] = pair.split('=');
+          if (k) vars[k.trim()] = v.join('=').trim();
+        });
+      }
+      await window.electronAPI?.storage?.environments?.add?.({ name, workdir, vars });
+      _refreshSSHPage(main);
+    });
+
+    // Click environment to load
+    main.querySelectorAll('.tp-ssh-env-item').forEach(item => {
+      item.addEventListener('click', async (e) => {
+        if (e.target.closest('.tp-ssh-env-delete')) return;
+        const id = item.dataset.envId;
+        const envs = await window.electronAPI?.storage?.environments?.list?.() || [];
+        const env = envs.find(e => e.id === id);
+        if (!env) return;
+        // Populate form with environment settings
+        const workdirInput = main.querySelector('#ssh-host');
+        if (workdirInput && env.host) workdirInput.value = env.host;
+        // If env has a host, auto-connect
+        if (env.host && env.username) {
+          try {
+            await window.electronAPI?.ssh?.connect?.({
+              host: env.host,
+              port: env.port || 22,
+              username: env.username,
+            });
+            _sshOutputBuffer = '';
+            // Send cd command if workdir is set
+            if (env.workdir && env.workdir !== '~') {
+              await window.electronAPI?.ssh?.send?.(`cd ${env.workdir}`);
+            }
+            _refreshSSHPage(main);
+          } catch (err) {
+            alert(`Connection failed: ${err.message}`);
+          }
+        }
+      });
+    });
+
+    // Delete environment
+    main.querySelectorAll('[data-env-delete]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.envDelete;
+        if (!confirm('Delete this environment?')) return;
+        await window.electronAPI?.storage?.environments?.remove?.(id);
+        _refreshSSHPage(main);
+      });
+    });
   }
 
   async function _refreshSSHPage(main) {
@@ -940,7 +1021,8 @@
     if (!page) return;
     const connections = await window.electronAPI?.ssh?.connections?.list?.() || [];
     const state = await window.electronAPI?.ssh?.state?.() || {};
-    page.outerHTML = buildSSHPage(connections, state);
+    const environments = await window.electronAPI?.storage?.environments?.list?.() || [];
+    page.outerHTML = buildSSHPage(connections, state, environments);
     bindSSHEvents();
   }
 
@@ -988,14 +1070,16 @@
     // Fetch SSH data if on SSH page
     let sshConnections = [];
     let sshState = {};
+    let sshEnvironments = [];
     if (pageId === 'ssh') {
       try {
         sshConnections = await window.electronAPI?.ssh?.connections?.list?.() || [];
         sshState = await window.electronAPI?.ssh?.state?.() || {};
+        sshEnvironments = await window.electronAPI?.storage?.environments?.list?.() || [];
       } catch { /* */ }
     }
 
-    const pageData = { extensions, bookmarks, cookies, sshConnections, sshState };
+    const pageData = { extensions, bookmarks, cookies, sshConnections, sshState, sshEnvironments };
 
     container.innerHTML = html`
       <div class="tab-pages">
