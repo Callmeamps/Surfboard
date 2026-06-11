@@ -310,8 +310,10 @@
               <div class="settings-label">Each profile has its own bookmarks, history, settings, and extensions.</div>
             </div>
             <div id="profiles-list" class="profiles-list"></div>
-            <div class="settings-row" style="margin-top:12px">
+            <div class="settings-row" style="margin-top:12px;display:flex;gap:8px">
               <button id="profiles-create-btn" class="btn-primary no-drag">+ New Profile</button>
+              <button id="profiles-export-btn" class="btn-secondary no-drag">Export All</button>
+              <button id="profiles-import-btn" class="btn-secondary no-drag">Import</button>
             </div>
           </div>
         </div>
@@ -322,6 +324,57 @@
     $overlay.querySelector('.settings-close').addEventListener('click', () => $overlay.classList.add('hidden'));
     $overlay.addEventListener('click', (e) => { if (e.target === $overlay) $overlay.classList.add('hidden'); });
     $overlay.querySelector('#profiles-create-btn').addEventListener('click', _openCreateDialog);
+
+    // Export all profiles
+    $overlay.querySelector('#profiles-export-btn')?.addEventListener('click', async () => {
+      try {
+        const data = JSON.stringify(_profiles, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'surfboard-profiles.json';
+        a.click();
+        _deps?.toast?.(`Exported ${_profiles.length} profiles`);
+      } catch (err) {
+        _deps?.toast?.('Export failed: ' + err.message);
+      }
+    });
+
+    // Import profiles
+    $overlay.querySelector('#profiles-import-btn')?.addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const imported = JSON.parse(text);
+          if (!Array.isArray(imported)) {
+            _deps?.toast?.('Invalid profile file');
+            return;
+          }
+          let count = 0;
+          for (const p of imported) {
+            if (p.name && p.id !== 'default') {
+              await _deps?.ipc?.profiles?.create?.({
+                name: p.name,
+                avatar: p.avatar || '👤',
+                color: p.color || '#6366f1',
+              });
+              count++;
+            }
+          }
+          await _loadProfiles();
+          _renderProfileList();
+          _deps?.toast?.(`Imported ${count} profiles`);
+        } catch (err) {
+          _deps?.toast?.('Import failed: ' + err.message);
+        }
+      });
+      input.click();
+    });
   }
 
   function getCurrentProfile() {
