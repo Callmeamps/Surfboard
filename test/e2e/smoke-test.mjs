@@ -14,6 +14,10 @@ async function main() {
     env: { ...process.env },
   });
 
+  // Capture stderr/stdout for debugging
+  electronApp.process().stderr.on('data', d => process.stderr.write('[electron:err] ' + d));
+  electronApp.process().stdout.on('data', d => process.stdout.write('[electron:out] ' + d));
+
   // Wait for the main window (not extension background pages)
   console.log("Waiting for main window...");
   const window = await electronApp.firstWindow({ timeout: 60000 });
