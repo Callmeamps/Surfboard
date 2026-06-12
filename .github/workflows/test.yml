@@ -31,7 +31,19 @@ jobs:
       - name: Run unit tests (group A2)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
-            --testPathPatterns='test/(data-pipeline|download-manager|editor-engine)\.test\.js'
+            --testPathPatterns='test/(data-pipeline|download-manager)\.test\.js'
+
+  test-a3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v3
+      - run: npm ci
+      - name: Run unit tests (group A3)
+        run: |
+          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
+            --testPathPatterns='test/editor-engine\.test\.js'
 
   test-b:
     runs-on: ubuntu-latest
@@ -61,7 +73,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [test-a, test-a2, test-b, test-c]
+    needs: [test-a, test-a2, test-a3, test-b, test-c]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
@@ -82,7 +94,7 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [test-a, test-a2, test-b, test-c]
+    needs: [test-a, test-a2, test-a3, test-b, test-c]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
@@ -103,7 +115,7 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [test-a, test-a2, test-b, test-c]
+    needs: [test-a, test-a2, test-a3, test-b, test-c]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
