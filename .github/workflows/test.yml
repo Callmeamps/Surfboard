@@ -42,7 +42,7 @@ jobs:
       - run: npm ci
       - name: Run heavy tests (download-manager)
         run: |
-          NODE_OPTIONS='--max-old-space-size=6144 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
+          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
             --config jest.light.config.js \
             --testPathPatterns='test/download-manager\.test\.js'
 
