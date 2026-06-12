@@ -29,3 +29,11 @@ eval(aiSrc);
 // Pre-initialize for tests so one-shot flags are locked in
 window.ModeManager?.init?.();
 window.TrustManager?.registerDefaults?.([]);
+
+// Force GC between test suites to prevent OOM on CI (7GB runners)
+if (typeof global.gc === 'function') {
+  const originalSetup = global.beforeAll;
+  afterEach(() => {
+    global.gc();
+  });
+}
