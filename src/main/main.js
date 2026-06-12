@@ -60,8 +60,13 @@ app.on('second-instance', (_event, _commandLine, _workingDirectory) => {
 
 // ── Linux: Wayland / X11 hints ─────────────────────────
 if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations');
-  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+  // Force X11 unless --wayland flag is passed (Wayland needs Vulkan which many CI envs lack)
+  if (!process.argv.includes('--wayland')) {
+    app.commandLine.appendSwitch('ozone-platform', 'x11');
+  } else {
+    app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations');
+    app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+  }
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
   app.commandLine.appendSwitch('disable-gpu-sandbox');
 }

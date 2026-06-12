@@ -358,47 +358,6 @@ function register() {
     return extLoader.getAllBadgeStates();
   });
 
-  // ── Downloads ───────────────────────────────────────
-  ipcMain.handle('downloads:list', async () => {
-    const downloadManager = require('./download-manager');
-    return downloadManager.list();
-  });
-
-  ipcMain.handle('downloads:history', async () => {
-    const downloadManager = require('./download-manager');
-    return downloadManager.getHistory();
-  });
-
-  ipcMain.handle('downloads:pause', async (_event, id) => {
-    const downloadManager = require('./download-manager');
-    return downloadManager.pause(id);
-  });
-
-  ipcMain.handle('downloads:resume', async (_event, id) => {
-    const downloadManager = require('./download-manager');
-    return downloadManager.resume(id);
-  });
-
-  ipcMain.handle('downloads:cancel', async (_event, id) => {
-    const downloadManager = require('./download-manager');
-    return downloadManager.cancel(id);
-  });
-
-  ipcMain.handle('downloads:open', async (_event, id) => {
-    const downloadManager = require('./download-manager');
-    return downloadManager.openFile(id);
-  });
-
-  ipcMain.handle('downloads:show', async (_event, id) => {
-    const downloadManager = require('./download-manager');
-    return downloadManager.showInFolder(id);
-  });
-
-  ipcMain.handle('downloads:clearHistory', async () => {
-    const downloadManager = require('./download-manager');
-    return downloadManager.clearHistory();
-  });
-
   // ── Storage ──────────────────────────────────────────
   ipcMain.handle('storage:bookmarks:get', () => {
     return storage.getBookmarks();
