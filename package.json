@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron . --no-sandbox --enable-features=CanvasDrawElement",
     "dev": "electron . --no-sandbox --dev --enable-features=CanvasDrawElement",
-    "test": "jest --verbose --runInBand",
+    "test": "NODE_OPTIONS='--max-old-space-size=6144' jest --verbose --runInBand",
     "test:e2e": "jest --config jest.e2e.config.js --verbose --runInBand",
     "build": "electron-builder --dir",
     "dist": "electron-builder"
