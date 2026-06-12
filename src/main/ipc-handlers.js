@@ -651,6 +651,10 @@ function register() {
   });
 }
 
+  // ── PDF Viewer ──────────────────────────────────────────
+  const pdfViewer = require('./pdf-viewer');
+  pdfViewer.registerIpc();
+
   // ── Webview context menu ──────────────────────────────
   ipcMain.on('webview:context-menu', (_event, params) => {
     const win = windowManager.getWindow();

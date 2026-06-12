@@ -2890,3 +2890,110 @@ html, body {
 .tp-cloud-dc-status { font-size: 12px; color: var(--text-faint); margin-bottom: 12px; }
 .tp-btn-danger { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
 .tp-btn-danger:hover { background: rgba(239,68,68,0.25); }
+
+/* ── PDF Viewer ───────────────────────────────────────── */
+.pdf-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg, #1a1a2e);
+  color: var(--text, #e0e0e0);
+}
+
+.pdf-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--bg-lighter, #1e1e32);
+  border-bottom: 1px solid var(--border, #2a2a3e);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.pdf-toolbar-left,
+.pdf-toolbar-center,
+.pdf-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pdf-btn {
+  background: transparent;
+  border: 1px solid var(--border, #2a2a3e);
+  color: var(--text, #e0e0e0);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.pdf-btn:hover {
+  background: var(--hover, #2a2a4a);
+  border-color: var(--accent, #6c63ff);
+}
+
+.pdf-page-info {
+  font-size: 12px;
+  color: var(--text-dim, #888);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pdf-page-input {
+  width: 40px;
+  text-align: center;
+  background: var(--bg, #1a1a2e);
+  border: 1px solid var(--border, #2a2a3e);
+  color: var(--text, #e0e0e0);
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 12px;
+}
+
+.pdf-zoom-level {
+  font-size: 12px;
+  color: var(--text-dim, #888);
+  min-width: 40px;
+  text-align: center;
+}
+
+.pdf-canvas-container {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+  background: var(--bg-darker, #12121e);
+}
+
+.pdf-canvas {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  border-radius: 2px;
+  background: white;
+}
+
+.pdf-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  color: var(--text-dim, #888);
+}
+
+.pdf-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  color: #ef4444;
+  text-align: center;
+  padding: 20px;
+}

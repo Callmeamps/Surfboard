@@ -36,10 +36,39 @@
     'surfboard://cookies': 'cookies',
     'surfboard://ssh': 'ssh',
     'surfboard://cloud': 'cloud',
+    'surfboard://pdf': 'pdf',
   };
 
   function _isInternalUrl(url) {
     return url && url in INTERNAL_URLS;
+  }
+
+  function _parsePdfUrl(url) {
+    if (!url || !url.startsWith('surfboard://pdf')) return {};
+    try {
+      const u = new URL(url);
+      return Object.fromEntries(u.searchParams.entries());
+    } catch { return {}; }
+  }
+
+  function _isPdfUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    const lower = url.toLowerCase();
+    return lower.endsWith('.pdf') ||
+      (lower.includes('pdf') && lower.includes('content-type=application'));
+  }
+
+  async function _openPdfViewer(url) {
+    try {
+      // Fetch and cache PDF in main process
+      const result = await window.electronAPI?.invoke?.('pdf:open', url);
+      if (result?.success && result?.cacheKey) {
+        // Open PDF viewer tab
+        await _deps.tabsIPC.create('surfboard://pdf?id=' + encodeURIComponent(result.cacheKey));
+      }
+    } catch (err) {
+      console.error('[PDF] Failed to open:', err);
+    }
   }
 
   function _showInternalPage(url) {
@@ -68,6 +97,13 @@
       return true;
     }
 
+    // PDF viewer page
+    if (pageType === 'pdf') {
+      const params = _parsePdfUrl(activeTab.url);
+      window.PDFViewerPage?.init(_internalPagesEl, params);
+      return true;
+    }
+
     // Tab pages: extensions, agents, shell, workflows, links
     if (['extensions', 'agents', 'shell', 'workflows', 'links', 'cookies', 'ssh', 'cloud'].includes(pageType)) {
       window.TabPages?.render(_internalPagesEl, pageType, {
@@ -82,6 +118,7 @@
   function _hideInternalPage() {
     if (_internalPagesEl) {
       _internalPagesEl.classList.add('hidden');
+      window.PDFViewerPage?.destroy();
       _internalPagesEl.innerHTML = '';
     }
   }
@@ -161,8 +198,20 @@
       if (tabId === _activeTabId) _deps.addrInput.value = url;
       _syncTab({ url });
       _updateNTP();
+      // Intercept PDF URLs — open in PDF viewer
+      if (url && _isPdfUrl(url)) {
+        _openPdfViewer(url);
+        return;
+      }
       if (url && url !== 'about:blank' && t.title) {
         _deps.storage.addHistoryEntry?.({ url, title: t.title }).catch(() => {});
+      }
+    });
+
+    // Also intercept in-page PDF navigations
+    wv.addEventListener('did-navigate-in-page', (e) => {
+      if (e.url && _isPdfUrl(e.url)) {
+        _openPdfViewer(e.url);
       }
     });
     wv.addEventListener('did-navigate-in-page', (e) => {
@@ -170,7 +219,17 @@
       if (tabId === _activeTabId) _deps.addrInput.value = url;
       _syncTab({ url });
     });
-    wv.addEventListener('new-window', (e) => { e.preventDefault(); if (e.url && e.url !== 'about:blank') _deps.tabsIPC.create(e.url); });
+    wv.addEventListener('new-window', (e) => {
+      e.preventDefault();
+      if (e.url && e.url !== 'about:blank') {
+        // Intercept PDF links — open in PDF viewer
+        if (_isPdfUrl(e.url)) {
+          _openPdfViewer(e.url);
+        } else {
+          _deps.tabsIPC.create(e.url);
+        }
+      }
+    });
     wv.addEventListener('context-menu', (e) => {
       e.preventDefault();
       window.electronAPI?.webview?.showContextMenu({

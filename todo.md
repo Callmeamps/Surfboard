@@ -30,8 +30,8 @@
 
 ## Priority 5 (browser features)
 
-- [ ] PDF viewer
-- [ ] Download manager
+- [x] PDF viewer
+- [x] Download manager
 - [ ] Print dialog
 
 ## Session completed this round
@@ -47,6 +47,6 @@
 
 ## Stats
 
-- Tests: 591 passing, 31 suites
-- Beads: 69 total, all closed
-- Last push: cf64a0c
+- Tests: 597 passing, 31 suites
+- Beads: 70 total, all closed
+- Last push: cc84a08

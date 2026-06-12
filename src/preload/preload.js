@@ -201,6 +201,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     dismiss: () => ipcRenderer.invoke('changelog:dismiss'),
   },
 
+  // ── PDF Viewer ────────────────────────────────────────
+  pdf: {
+    open: (url) => ipcRenderer.invoke('pdf:open', url),
+    getData: (cacheKey) => ipcRenderer.invoke('pdf:getData', cacheKey),
+    download: (cacheKey) => ipcRenderer.invoke('pdf:download', cacheKey),
+    print: (cacheKey) => ipcRenderer.invoke('pdf:print', cacheKey),
+  },
+
   // ── Session persistence ─────────────────────────────────
   session: {
     save: () => ipcRenderer.invoke('session:save'),

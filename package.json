@@ -44,7 +44,10 @@
       "./test/setup-feature-platform.js"
     ],
     "testEnvironment": "jest-environment-jsdom",
-    "testPathIgnorePatterns": ["/node_modules/", "/test/e2e/"]
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/test/e2e/"
+    ]
   },
   "keywords": [
     "electron",
@@ -55,6 +58,7 @@
   "license": "MIT",
   "dependencies": {
     "electron": "^42.3.3",
+    "pdfjs-dist": "^6.0.227",
     "ssh2": "^1.17.0"
   },
   "devDependencies": {
