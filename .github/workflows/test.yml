@@ -141,6 +141,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
+      - run: npm ci
       - name: Install system deps for Electron
         run: |
           sudo apt-get update -qq
@@ -162,6 +163,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
+      - run: npm ci
       - name: Install system deps for Electron
         run: |
           sudo apt-get update -qq
@@ -183,6 +185,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
+      - run: npm ci
       - name: Install system deps for Electron
         run: |
           sudo apt-get update -qq
