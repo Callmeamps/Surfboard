@@ -209,6 +209,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     print: (cacheKey) => ipcRenderer.invoke('pdf:print', cacheKey),
   },
 
+  // ── Print ─────────────────────────────────────────────
+  print: {
+    getDevices: () => ipcRenderer.invoke('print:get-devices'),
+    do: (opts) => ipcRenderer.invoke('print:do', opts),
+  },
+
   // ── Session persistence ─────────────────────────────────
   session: {
     save: () => ipcRenderer.invoke('session:save'),

@@ -89,6 +89,21 @@
   const $changelogClose     = document.getElementById('changelog-close');
   const $changelogDismiss   = document.getElementById('changelog-dismiss');
 
+  // ── Print dialog refs ───────────────────────────────────
+  const $printOverlay     = document.getElementById('print-dialog-overlay');
+  const $printClose       = document.getElementById('print-dialog-close');
+  const $printDest        = document.getElementById('print-destination');
+  const $printCopies      = document.getElementById('print-copies');
+  const $printPages       = document.getElementById('print-pages');
+  const $printPageRange   = document.getElementById('print-page-range');
+  const $printLandscape   = document.getElementById('print-landscape');
+  const $printBg          = document.getElementById('print-bg');
+  const $printScale       = document.getElementById('print-scale');
+  const $printScaleVal    = document.getElementById('print-scale-val');
+  const $printCancel      = document.getElementById('print-cancel');
+  const $printSavePdf     = document.getElementById('print-save-pdf');
+  const $printGo          = document.getElementById('print-go');
+
   // ── State ────────────────────────────────────────────────
   let suggestions = [];
   let addrActiveIdx = -1;
@@ -647,6 +662,74 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && _shortcutMenuOpen) { e.preventDefault(); _toggleShortcutMenu(); } });
   }
 
+  // ── Print Dialog ───────────────────────────────────────
+  let _printDialogOpen = false;
+
+  async function _openPrintDialog() {
+    if (_printDialogOpen) return;
+    _printDialogOpen = true;
+    $printOverlay.classList.remove('hidden');
+
+    // Populate printer list
+    const devices = await window.electronAPI?.print?.getDevices?.() || [];
+    $printDest.innerHTML = '<option value="default">Default printer</option>';
+    for (const d of devices) {
+      const opt = document.createElement('option');
+      opt.value = d.name;
+      opt.textContent = d.name + (d.isDefault ? ' (default)' : '');
+      $printDest.appendChild(opt);
+    }
+
+    // Reset to defaults
+    $printCopies.value = '1';
+    $printPages.value = 'all';
+    $printPageRange.classList.add('hidden');
+    $printLandscape.checked = false;
+    $printBg.checked = true;
+    $printScale.value = '100';
+    $printScaleVal.textContent = '100';
+  }
+
+  function _closePrintDialog() {
+    _printDialogOpen = false;
+    $printOverlay.classList.add('hidden');
+  }
+
+  async function _doPrint(destination) {
+    const opts = {
+      destination: destination || 'printer',
+      deviceName: $printDest.value === 'default' ? '' : $printDest.value,
+      copies: parseInt($printCopies.value, 10) || 1,
+      landscape: $printLandscape.checked,
+      printBackground: $printBg.checked,
+      scaleFactor: parseInt($printScale.value, 10) || 100,
+      pageRange: $printPages.value === 'custom' ? $printPageRange.value : '',
+    };
+    _closePrintDialog();
+    const result = await window.electronAPI?.print?.do?.(opts);
+    if (result && !result.success && result.error !== 'Cancelled') {
+      console.warn('[print] failed:', result.error);
+    }
+  }
+
+  function _setupPrintDialog() {
+    if (!$printOverlay) return;
+    $printOverlay.addEventListener('click', (e) => { if (e.target === $printOverlay) _closePrintDialog(); });
+    $printClose?.addEventListener('click', _closePrintDialog);
+    $printCancel?.addEventListener('click', _closePrintDialog);
+    $printGo?.addEventListener('click', () => _doPrint('printer'));
+    $printSavePdf?.addEventListener('click', () => _doPrint('pdf'));
+    $printPages?.addEventListener('change', () => {
+      $printPageRange.classList.toggle('hidden', $printPages.value !== 'custom');
+    });
+    $printScale?.addEventListener('input', () => {
+      $printScaleVal.textContent = $printScale.value;
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && _printDialogOpen) { e.preventDefault(); _closePrintDialog(); }
+    });
+  }
+
   // ── Chat ─────────────────────────────────────────────────
   async function _sendChat() {
     const text = $chatInput.value.trim(); if (!text) return;
@@ -910,6 +993,11 @@
       else if (e.altKey && e.shiftKey && e.key === 'O') {
         e.preventDefault();
         _tabs.create('surfboard://cloud');
+      }
+      // Ctrl+P — print dialog
+      else if (c && e.key === 'p') {
+        e.preventDefault();
+        _openPrintDialog();
       }
     });
   }
@@ -1210,6 +1298,7 @@
 
     _setupKeys();
     _setupShortcutOverlay();
+    _setupPrintDialog();
 
     // Feature platform: modes + trust bootstrap
     try {

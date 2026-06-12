@@ -398,6 +398,49 @@
       </div>
     </div>
 
+    <!-- ── Print dialog overlay ──────────────────────────────── -->
+    <div id="print-dialog-overlay" class="print-dialog-overlay hidden">
+      <div class="print-dialog">
+        <div class="print-dialog-header">
+          <span class="print-dialog-title">Print</span>
+          <button id="print-dialog-close" class="print-dialog-close" title="Close (Esc)">✕</button>
+        </div>
+        <div class="print-dialog-body">
+          <div class="print-row">
+            <label class="print-label">Destination</label>
+            <select id="print-destination" class="print-select">
+              <option value="default">Default printer</option>
+            </select>
+          </div>
+          <div class="print-row">
+            <label class="print-label">Copies</label>
+            <input id="print-copies" class="print-input" type="number" min="1" max="99" value="1"/>
+          </div>
+          <div class="print-row">
+            <label class="print-label">Pages</label>
+            <select id="print-pages" class="print-select">
+              <option value="all">All</option>
+              <option value="custom">Custom</option>
+            </select>
+            <input id="print-page-range" class="print-input print-range-input hidden" type="text" placeholder="e.g. 1-5, 8, 11-13"/>
+          </div>
+          <div class="print-row print-row-inline">
+            <label class="print-label"><input id="print-landscape" type="checkbox"/> Landscape</label>
+            <label class="print-label"><input id="print-bg" type="checkbox" checked/> Background graphics</label>
+          </div>
+          <div class="print-row">
+            <label class="print-label">Scale: <span id="print-scale-val">100</span>%</label>
+            <input id="print-scale" class="print-slider" type="range" min="25" max="400" value="100"/>
+          </div>
+        </div>
+        <div class="print-dialog-footer">
+          <button id="print-cancel" class="print-btn print-btn-ghost">Cancel</button>
+          <button id="print-save-pdf" class="print-btn print-btn-secondary">Save as PDF</button>
+          <button id="print-go" class="print-btn print-btn-primary">Print</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Changelog overlay ───────────────────────────────── -->
     <div id="changelog-overlay" class="changelog-overlay hidden">
       <div class="changelog-dialog">

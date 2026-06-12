@@ -608,6 +608,68 @@ function register() {
   ipcMain.handle('changelog:dismiss', () => {
     return storage.dismissChangelog();
   });
+
+  // ── Print ────────────────────────────────────────────────
+  ipcMain.handle('print:get-devices', async () => {
+    const win = windowManager.getWindow();
+    if (!win || win.isDestroyed()) return [];
+    try {
+      const devices = await win.webContents.getPrintersAsync();
+      return devices.map(d => ({ name: d.name, isDefault: d.isDefault }));
+    } catch {
+      return [];
+    }
+  });
+
+  ipcMain.handle('print:do', async (_event, opts = {}) => {
+    const win = windowManager.getWindow();
+    if (!win || win.isDestroyed()) return { success: false, error: 'No window' };
+    try {
+      // Get the active webview's webContents for printing
+      const tabId = tabManager.getActiveId();
+      if (!tabId) return { success: false, error: 'No active tab' };
+      const tab = tabManager.get(tabId);
+      if (!tab || !tab.webContents) return { success: false, error: 'Tab not found' };
+      const wc = webContents.fromId(tab.webContents);
+      if (!wc) return { success: false, error: 'WebContents not found' };
+
+      const printOpts = {
+        silent: opts.silent || false,
+        printBackground: opts.printBackground !== false,
+        deviceName: opts.deviceName || '',
+        color: opts.color !== false,
+        copies: opts.copies || 1,
+        pageRange: opts.pageRange || '',
+        duplex: opts.duplex ? 'short' : 'simplex',
+        pageSize: opts.landscape ? { width: 297, height: 210 } : { width: 210, height: 297 },
+        scaleFactor: opts.scaleFactor || 100,
+        margins: { marginType: 'default' },
+      };
+
+      if (opts.destination === 'pdf') {
+        // Save as PDF
+        const { canceled, filePath } = await require('electron').dialog.showSaveDialog(win, {
+          defaultPath: 'print.pdf',
+          filters: [{ name: 'PDF', extensions: ['pdf'] }],
+        });
+        if (canceled || !filePath) return { success: false, error: 'Cancelled' };
+        const data = await wc.printToPDF({
+          printBackground: printOpts.printBackground,
+          pageSize: printOpts.pageSize,
+          scaleFactor: printOpts.scaleFactor,
+          margins: printOpts.margins,
+        });
+        require('fs').writeFileSync(filePath, data);
+        return { success: true, path: filePath };
+      }
+
+      // Normal print (shows OS dialog or sends to printer)
+      await wc.print(printOpts);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
 }
 
   // ── PDF Viewer ──────────────────────────────────────────

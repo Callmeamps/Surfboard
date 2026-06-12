@@ -50,6 +50,9 @@
       ['SSH Sessions', 'Alt', 'Shift', 'S'],
       ['Cloud Sessions', 'Alt', 'Shift', 'O'],
     ]},
+    { title: 'Print', items: [
+      ['Print page', 'Ctrl', 'P'],
+    ]},
     { title: 'Dev', items: [
       ['DevTools', 'F12'],
       ['Shortcuts', '?'],
