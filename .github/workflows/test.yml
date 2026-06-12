@@ -17,7 +17,7 @@ jobs:
       - uses: jdx/mise-action@v3
       - name: Run unit tests (group A)
         run: |
-          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' npx jest --verbose --runInBand --forceExit \
+          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' npx --no jest --verbose --runInBand --forceExit \
             --testPathPatterns='test/(actions|ai-client|browser-shell|canvas-pages|cloud-manager|cookie-manager|data-pipeline|download-manager|editor-engine|extension-loader|inspector|ipc-shell|ipc-tab-order|links-dashboard|miniapps|mode-manager|papertm-drag)\.test\.js'
 
   test-b:
@@ -28,7 +28,7 @@ jobs:
       - uses: jdx/mise-action@v3
       - name: Run unit tests (group B)
         run: |
-          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' npx jest --verbose --runInBand --forceExit \
+          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' npx --no jest --verbose --runInBand --forceExit \
             --testPathPatterns='test/(papertm-minimap|pdf-viewer|profiles|renderer-webviews|right-sidebar|session-persistence|settings-page|shortcut-menu|ssh-manager|storage|tab-groups|tab-lifecycle|tab-manager|tab-pages|trust-manager|workflows)\.test\.js'
 
   # Build distributables
