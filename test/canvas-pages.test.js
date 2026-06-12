@@ -155,24 +155,27 @@ describe('CanvasPages', () => {
     expect(content).toContain('Failed to load bookmarks');
   });
 
-  // ── Placeholder pages ────────────────────────────────────
+  // ── Activity / Agents / Bash pages ───────────────────────
 
-  test('open activity page shows coming soon', async () => {
+  test('open activity page renders with empty data', async () => {
     await window.CanvasPages.open('activity');
     const content = document.getElementById('canvas-host-content').innerHTML;
-    expect(content).toContain('coming soon');
+    // Shows empty state or activity timeline
+    expect(content).toContain('activity');
   });
 
-  test('open agents page shows coming soon', async () => {
+  test('open agents page renders with empty data', async () => {
     await window.CanvasPages.open('agents');
     const content = document.getElementById('canvas-host-content').innerHTML;
-    expect(content).toContain('coming soon');
+    // Shows empty state or agent sessions
+    expect(content).toContain('agent');
   });
 
-  test('open bash page shows coming soon', async () => {
+  test('open bash page renders with empty data', async () => {
     await window.CanvasPages.open('bash');
     const content = document.getElementById('canvas-host-content').innerHTML;
-    expect(content).toContain('coming soon');
+    // Shows empty state or terminal sessions
+    expect(content).toContain('bash');
   });
 
   // ── Canvas host state ────────────────────────────────────

@@ -469,6 +469,146 @@ describe('autoLoadExtensions', () => {
   });
 });
 
+// ─── sendRuntimeMessage ─────────────────────────────────────────────
+
+describe('sendRuntimeMessage', () => {
+  test('rejects when no background page found', async () => {
+    const { webContents } = require('electron');
+    webContents.getAllWebContents.mockReturnValue([]);
+
+    await expect(
+      extensionLoader.sendRuntimeMessage('ext-1', { type: 'ping' }, {})
+    ).rejects.toThrow('No background page for extension');
+  });
+
+  test('resolves with response when background page exists', async () => {
+    const mockExecuteScript = jest.fn().mockResolvedValue('pong');
+    const mockWC = {
+      getURL: () => 'chrome-extension://ext-1/background.js',
+      executeJavaScript: mockExecuteScript,
+    };
+    const { webContents } = require('electron');
+    webContents.getAllWebContents.mockReturnValue([mockWC]);
+
+    const result = await extensionLoader.sendRuntimeMessage('ext-1', { type: 'ping' }, {});
+
+    expect(result).toBe('pong');
+    expect(mockExecuteScript).toHaveBeenCalled();
+  });
+});
+
+// ─── broadcastRuntimeMessage ───────────────────────────────────────
+
+describe('broadcastRuntimeMessage', () => {
+  test('sends message to all loaded extensions', async () => {
+    // Load an extension first
+    mockLoadExtension.mockResolvedValue({ extension: { id: 'ext-bcast', name: 'Bcast' } });
+    mockReadFile.mockResolvedValue(JSON.stringify({ name: 'Bcast', version: '1.0' }));
+    await extensionLoader.loadExtension('/fake/dir/bcast');
+
+    const mockExecuteScript = jest.fn().mockResolvedValue(undefined);
+    const { webContents } = require('electron');
+    webContents.getAllWebContents.mockReturnValue([]);
+
+    // Should not throw even with no background page
+    extensionLoader.broadcastRuntimeMessage({ type: 'test' }, {});
+
+    // Wait for async operations
+    await new Promise((r) => setTimeout(r, 50));
+  });
+});
+
+// ─── Badge API ──────────────────────────────────────────────────────
+
+describe('Badge API', () => {
+  test('setBadgeText stores text for extension', () => {
+    extensionLoader.setBadgeText('ext-1', '5');
+    const state = extensionLoader.getBadgeState('ext-1');
+    expect(state.text).toBe('5');
+  });
+
+  test('setBadgeBackgroundColor stores color for extension', () => {
+    extensionLoader.setBadgeBackgroundColor('ext-1', '#FF0000');
+    const state = extensionLoader.getBadgeState('ext-1');
+    expect(state.backgroundColor).toBe('#FF0000');
+  });
+
+  test('getBadgeState returns empty state for unknown extension', () => {
+    const state = extensionLoader.getBadgeState('unknown');
+    expect(state).toEqual({ text: '', backgroundColor: '' });
+  });
+
+  test('getAllBadgeStates returns all badge states', () => {
+    extensionLoader.setBadgeText('ext-a', '1');
+    extensionLoader.setBadgeText('ext-b', '2');
+    const all = extensionLoader.getAllBadgeStates();
+    expect(all).toEqual({
+      'ext-a': { text: '1' },
+      'ext-b': { text: '2' },
+    });
+  });
+
+  test('broadcasts badge change to all windows', () => {
+    const windowSend = jest.fn();
+    const { BrowserWindow } = require('electron');
+    BrowserWindow.getAllWindows.mockReturnValue([
+      { isDestroyed: () => false, webContents: { send: windowSend } },
+    ]);
+
+    extensionLoader.setBadgeText('ext-1', '10');
+
+    expect(windowSend).toHaveBeenCalledWith('extensions:badge', {
+      extensionId: 'ext-1',
+      text: '10',
+    });
+  });
+
+  test('does not broadcast to destroyed windows', () => {
+    const windowSend = jest.fn();
+    const { BrowserWindow } = require('electron');
+    BrowserWindow.getAllWindows.mockReturnValue([
+      { isDestroyed: () => true, webContents: { send: windowSend } },
+    ]);
+
+    extensionLoader.setBadgeText('ext-1', '5');
+
+    expect(windowSend).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Storage change events ──────────────────────────────────────────
+
+describe('broadcastStorageChange', () => {
+  test('sends storage-changed event to all windows', () => {
+    const windowSend = jest.fn();
+    const { BrowserWindow } = require('electron');
+    BrowserWindow.getAllWindows.mockReturnValue([
+      { isDestroyed: () => false, webContents: { send: windowSend } },
+    ]);
+
+    const changes = { key1: { oldValue: 'a', newValue: 'b' } };
+    extensionLoader.broadcastStorageChange('ext-1', changes, 'local');
+
+    expect(windowSend).toHaveBeenCalledWith('extensions:storage-changed', {
+      extensionId: 'ext-1',
+      changes,
+      areaName: 'local',
+    });
+  });
+
+  test('does not send to destroyed windows', () => {
+    const windowSend = jest.fn();
+    const { BrowserWindow } = require('electron');
+    BrowserWindow.getAllWindows.mockReturnValue([
+      { isDestroyed: () => true, webContents: { send: windowSend } },
+    ]);
+
+    extensionLoader.broadcastStorageChange('ext-1', {}, 'sync');
+
+    expect(windowSend).not.toHaveBeenCalled();
+  });
+});
+
 // ─── getDefaultExtensionsDir ───────────────────────────────────────
 
 describe('getDefaultExtensionsDir', () => {

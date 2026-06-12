@@ -7,6 +7,7 @@
 
 const { net } = require('electron');
 const profiles = require('./profiles');
+const config = require('../../config');
 
 const POLL_INTERVAL_MS = 5000;
 const MAX_POLL_ATTEMPTS = 60; // 5 minutes max
@@ -16,7 +17,7 @@ const PROVIDERS = {
     id: 'github',
     label: 'GitHub Codespaces',
     icon: '🐙',
-    clientId: () => process.env.GITHUB_CLIENT_ID || 'Iv1.b507a32c69ecf754',
+    clientId: () => config.github.clientId,
     deviceCodeUrl: 'https://github.com/login/device/code',
     tokenUrl: 'https://github.com/login/oauth/access_token',
     apiBase: 'https://api.github.com',
@@ -56,11 +57,11 @@ const PROVIDERS = {
     id: 'replit',
     label: 'Replit',
     icon: '🟧',
-    clientId: () => process.env.REPLIT_CLIENT_ID || '',
-    deviceCodeUrl: () => process.env.REPLIT_DEVICE_CODE_URL || 'https://replit.com/api/auth/device/code',
-    tokenUrl: () => process.env.REPLIT_TOKEN_URL || 'https://replit.com/api/auth/token',
-    apiBase: () => process.env.REPLIT_API_BASE || 'https://replit.com/api',
-    scope: () => process.env.REPLIT_SCOPE || '',
+    clientId: () => config.replit.clientId,
+    deviceCodeUrl: () => config.replit.deviceCodeUrl,
+    tokenUrl: () => config.replit.tokenUrl,
+    apiBase: () => config.replit.apiBase,
+    scope: () => config.replit.scope,
     headers: { 'Accept': 'application/json' },
     workspace: {
       list: '/workspaces',
@@ -87,11 +88,11 @@ const PROVIDERS = {
     id: 'gitpod',
     label: 'Gitpod',
     icon: '🟢',
-    clientId: () => process.env.GITPOD_CLIENT_ID || '',
-    deviceCodeUrl: () => process.env.GITPOD_DEVICE_CODE_URL || 'https://gitpod.io/api/oauth/device-code',
-    tokenUrl: () => process.env.GITPOD_TOKEN_URL || 'https://gitpod.io/api/oauth/token',
-    apiBase: () => process.env.GITPOD_API_BASE || 'https://gitpod.io/api',
-    scope: () => process.env.GITPOD_SCOPE || '',
+    clientId: () => config.gitpod.clientId,
+    deviceCodeUrl: () => config.gitpod.deviceCodeUrl,
+    tokenUrl: () => config.gitpod.tokenUrl,
+    apiBase: () => config.gitpod.apiBase,
+    scope: () => config.gitpod.scope,
     headers: { 'Accept': 'application/json' },
     workspace: {
       list: '/workspaces',

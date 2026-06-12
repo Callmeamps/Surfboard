@@ -221,6 +221,104 @@
     return html;
   }
 
+  // ── Activity Page ────────────────────────────────────────
+  function _renderActivityHtml(history, bookmarks) {
+    // Merge history and bookmarks into a unified timeline
+    const items = [];
+
+    (history || []).forEach(h => {
+      items.push({
+        type: 'visit',
+        icon: '🌐',
+        label: h.title || h.url,
+        url: h.url,
+        ts: h.lastVisitTime || h.visitTime || 0,
+      });
+    });
+
+    (bookmarks || []).forEach(bm => {
+      items.push({
+        type: 'bookmark',
+        icon: bm.icon || '🔖',
+        label: bm.label,
+        url: bm.url,
+        ts: bm.createdAt || 0,
+      });
+    });
+
+    // Sort by timestamp descending
+    items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+    if (!items.length) return _emptyHtml('activity');
+
+    let html = '<div class="canvas-page-inner">';
+    html += '<div class="canvas-page-title">Activity Timeline</div>';
+    html += '<div class="canvas-page-subtitle">' + items.length + ' events</div>';
+    html += '<div class="canvas-list">';
+
+    items.slice(0, 100).forEach(item => {
+      const ts = item.ts ? new Date(item.ts).toLocaleString() : '';
+      html += `<div class="canvas-list-item" data-url="${_esc(item.url)}" data-type="${item.type}">`
+        + `<span class="canvas-item-icon">${item.icon}</span>`
+        + `<span class="canvas-item-label">${_esc(item.label)}</span>`
+        + `<span class="canvas-item-url">${_esc(item.url)}</span>`
+        + `<span class="canvas-item-time">${ts}</span>`
+        + `</div>`;
+    });
+
+    html += '</div></div>';
+    return html;
+  }
+
+  // ── Agents Page ──────────────────────────────────────────
+  function _renderAgentsHtml(sessions) {
+    if (!sessions || !sessions.length) return _emptyHtml('AI agent sessions');
+
+    let html = '<div class="canvas-page-inner">';
+    html += '<div class="canvas-page-title">AI Agent Sessions</div>';
+    html += '<div class="canvas-page-subtitle">' + sessions.length + ' sessions</div>';
+    html += '<div class="canvas-list">';
+
+    sessions.forEach(s => {
+      const ts = s.createdAt ? new Date(s.createdAt).toLocaleString() : '';
+      const status = s.status || 'unknown';
+      const statusIcon = status === 'active' ? '🟢' : status === 'completed' ? '✅' : '⚪';
+      html += `<div class="canvas-list-item" data-session-id="${_esc(s.id)}">`
+        + `<span class="canvas-item-icon">${statusIcon}</span>`
+        + `<span class="canvas-item-label">${_esc(s.name || s.id)}</span>`
+        + `<span class="canvas-item-url">${_esc(s.provider || '')}</span>`
+        + `<span class="canvas-item-time">${ts}</span>`
+        + `</div>`;
+    });
+
+    html += '</div></div>';
+    return html;
+  }
+
+  // ── Bash Sessions Page ──────────────────────────────────
+  function _renderBashHtml(sessions) {
+    if (!sessions || !sessions.length) return _emptyHtml('bash sessions');
+
+    let html = '<div class="canvas-page-inner">';
+    html += '<div class="canvas-page-title">Terminal Sessions</div>';
+    html += '<div class="canvas-page-subtitle">' + sessions.length + ' sessions</div>';
+    html += '<div class="canvas-list">';
+
+    sessions.forEach(s => {
+      const ts = s.createdAt ? new Date(s.createdAt).toLocaleString() : '';
+      const cmdCount = s.commandCount || 0;
+      html += `<div class="canvas-list-item" data-session-id="${_esc(s.id)}">`
+        + `<span class="canvas-item-icon">💻</span>`
+        + `<span class="canvas-item-label">${_esc(s.title || s.id)}</span>`
+        + `<span class="canvas-item-url">${cmdCount} commands</span>`
+        + `<span class="canvas-item-time">${ts}</span>`
+        + `</div>`;
+    });
+
+    html += '</div></div>';
+    return html;
+  }
+
   // ── Subscribers ──────────────────────────────────────────
   function onChange(fn) { _observers.push(fn); }
   function _notifyChange(pageId) { _observers.forEach(fn => fn(pageId)); }
@@ -267,17 +365,41 @@
 
     // ── Activity page ──────────────────────────────────────
     _register('activity', 'Activity', async () => {
-      return '<div class="canvas-page-inner" style="padding:40px;text-align:center;color:var(--text-faint)">Activity timeline coming soon</div>';
+      try {
+        const api = window.electronAPI;
+        const [history, bookmarks] = await Promise.all([
+          api?.storage?.getHistory?.(50) || [],
+          api?.storage?.getBookmarks?.() || [],
+        ]);
+        return _renderActivityHtml(history, bookmarks);
+      } catch (err) {
+        console.error('[CanvasPages] failed to load activity:', err);
+        return _errorHtml('Failed to load activity');
+      }
     });
 
     // ── Agents page ────────────────────────────────────────
     _register('agents', 'AI Agents', async () => {
-      return '<div class="canvas-page-inner" style="padding:40px;text-align:center;color:var(--text-faint)">AI agent sessions coming soon</div>';
+      try {
+        const api = window.electronAPI;
+        const sessions = await api?.ai?.getSessions?.() || [];
+        return _renderAgentsHtml(sessions);
+      } catch (err) {
+        console.error('[CanvasPages] failed to load agents:', err);
+        return _errorHtml('Failed to load agents');
+      }
     });
 
     // ── Bash Sessions page ────────────────────────────────
     _register('bash', 'Bash Sessions', async () => {
-      return '<div class="canvas-page-inner" style="padding:40px;text-align:center;color:var(--text-faint)">Terminal session history coming soon</div>';
+      try {
+        const api = window.electronAPI;
+        const sessions = await api?.shell?.getSessions?.() || [];
+        return _renderBashHtml(sessions);
+      } catch (err) {
+        console.error('[CanvasPages] failed to load bash sessions:', err);
+        return _errorHtml('Failed to load bash sessions');
+      }
     });
   }
 

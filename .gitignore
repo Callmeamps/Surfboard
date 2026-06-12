@@ -1,6 +1,9 @@
 node_modules/
 dist/
 
+# Environment variables (credentials)
+.env
+
 # Mise local overrides (user-specific, not committed)
 mise.local.toml
 mise.lock

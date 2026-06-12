@@ -141,6 +141,10 @@ app.whenReady().then(async () => {
   const extensionLoader = require('./extension-loader');
   extensionLoader.initContentScriptInjection();
 
+  // Initialize download manager
+  const downloadManager = require('./download-manager');
+  downloadManager.init();
+
   await createWindow();
 
   // Restore saved session or create a blank tab

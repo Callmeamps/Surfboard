@@ -221,6 +221,7 @@ function initContentScriptInjection() {
 /**
  * Inject polyfills into extension background pages and popups.
  * Electron doesn't implement chrome.storage.sync, chrome.action, etc.
+ * Also injects runtime messaging, badge API, and storage change events.
  */
 function _injectExtensionPolyfills(wc) {
 	const url = wc.getURL();
@@ -248,8 +249,131 @@ function _injectExtensionPolyfills(wc) {
 						});
 				}
 			};
-		}
-	})();
+
+			// ── chrome.runtime messaging ───────────────────────
+			if (chrome.runtime) {
+				const _listeners = { message: [] };
+				const _portListeners = [];
+
+				// onMessage emitter (called from main process)
+				chrome.runtime.onMessage.__emit = function(msg, sender, sendResponse) {
+					let responded = false;
+					const _sendResponse = (response) => {
+						if (responded) return;
+						responded = true;
+						sendResponse(response);
+					};
+					for (const listener of _listeners.message) {
+						try {
+							const result = listener(msg, sender, _sendResponse);
+							if (result && typeof result.then === 'function') {
+								result.then(_sendResponse).catch(() => {});
+							}
+						} catch (e) { /* skip */ }
+					}
+				};
+
+				// sendMessage to main process -> route to target extension
+				chrome.runtime.sendMessage = function(extensionId, message, options, callback) {
+					if (typeof options === 'function') { callback = options; options = {}; }
+					if (typeof extensionId === 'object') {
+						// sendMessage(message, callback) — send to own background
+						message = extensionId;
+						extensionId = undefined;
+					}
+					const promise = window.__electronAPI?.extensions?.sendMessage(extensionId, message, {
+						tabId: options?.tabId,
+						frameId: options?.frameId,
+						origin: location.origin,
+					});
+					if (promise && typeof promise.then === 'function') {
+						promise.then(response => { if (callback) callback(response); }).catch(() => {});
+					}
+				};
+
+				chrome.runtime.onMessage.addListener = function(listener) {
+					_listeners.message.push(listener);
+					return true;
+				};
+				chrome.runtime.onMessage.removeListener = function(listener) {
+					const idx = _listeners.message.indexOf(listener);
+					if (idx !== -1) _listeners.message.splice(idx, 1);
+				};
+				chrome.runtime.onMessage.hasListener = function(listener) {
+					return _listeners.message.includes(listener);
+				};
+
+				// chrome.runtime.connect (long-lived ports)
+				chrome.runtime.connect = function(extensionId, connectInfo) {
+					if (typeof extensionId === 'object') {
+						connectInfo = extensionId;
+						extensionId = undefined;
+					}
+					const portId = 'port_' + Math.random().toString(36).slice(2);
+					const port = {
+						name: connectInfo?.name || '',
+						sender: { id: chrome.runtime.id, origin: location.origin },
+						_postMessage: (msg) => {
+							window.__electronAPI?.extensions?.postPortMessage?.(extensionId, portId, msg);
+						},
+						onMessage: { addListener: (fn) => { _portListeners.push({ portId, fn }); }, removeListener: (fn) => {} },
+						onDisconnect: { addListener: () => {}, removeListener: () => {} },
+						postMessage: function(msg) { this._postMessage(msg); },
+						disconnect: function() { window.__electronAPI?.extensions?.disconnectPort?.(extensionId, portId); },
+					};
+					window.__electronAPI?.extensions?.connectPort?.(extensionId, portId, connectInfo?.name);
+					return port;
+				};
+
+				// chrome.runtime.id
+				if (!chrome.runtime.id) {
+					const match = location.href.match(/chrome-extension:\\/\\/([^/]+)/);
+					if (match) chrome.runtime.id = match[1];
+				}
+
+				// chrome.storage.onChanged
+				if (!chrome.storage.onChanged) {
+					chrome.storage.onChanged = {
+						_addListener: [],
+						addListener: function(fn) { this._addListener.push(fn); },
+						removeListener: function(fn) { const i = this._addListener.indexOf(fn); if (i !== -1) this._addListener.splice(i, 1); },
+						hasListener: function(fn) { return this._addListener.includes(fn); },
+					};
+				}
+				// Storage changed emitter (called from main process)
+				chrome.storage.onChanged.__emit = function(changes, areaName) {
+					for (const fn of chrome.storage.onChanged._addListener) {
+						try { fn(changes, areaName); } catch (e) { /* skip */ }
+					}
+				};
+
+				// Badge API (delegated to main process)
+				if (chrome.action && !chrome.action.setBadgeText) {
+					chrome.action.setBadgeText = function(details, callback) {
+						window.__electronAPI?.extensions?.setBadgeText?.(details.text || '');
+						if (callback) callback();
+					};
+					chrome.action.setBadgeBackgroundColor = function(details, callback) {
+						window.__electronAPI?.extensions?.setBadgeBackgroundColor?.(details.color || '');
+						if (callback) callback();
+					};
+					chrome.action.getBadgeText = function(details, callback) {
+						const result = window.__electronAPI?.extensions?.getBadgeText?.() || '';
+						if (callback) callback(result);
+					};
+				}
+				if (chrome.browserAction && !chrome.browserAction.setBadgeText) {
+					chrome.browserAction.setBadgeText = function(details, callback) {
+						window.__electronAPI?.extensions?.setBadgeText?.(details.text || '');
+						if (callback) callback();
+					};
+					chrome.browserAction.setBadgeBackgroundColor = function(details, callback) {
+						window.__electronAPI?.extensions?.setBadgeBackgroundColor?.(details.color || '');
+						if (callback) callback();
+					};
+				}
+			}
+		})();
 	`;
 
 	wc.executeJavaScript(polyfill).catch(() => {});
@@ -310,6 +434,16 @@ function _findBackgroundPage() {
 	return null;
 }
 
+function _findExtensionWebContents(extensionId) {
+	const { webContents } = require('electron');
+	for (const wc of webContents.getAllWebContents()) {
+		if (wc.getURL()?.startsWith(`chrome-extension://${extensionId}/`)) {
+			return wc;
+		}
+	}
+	return null;
+}
+
 /**
  * Auto-scan default extensions directory on startup.
  */
@@ -326,6 +460,99 @@ async function autoLoadExtensions() {
 		console.log(`[Extension] Session reports ${sessionExts.length} loaded extension(s)`);
 	} catch (err) {
 		console.warn('[Extension] Could not verify session extensions:', err.message);
+	}
+}
+
+// ── Extension message bus ─────────────────────────────────
+
+/**
+ * Send a message to an extension's background/service worker.
+ * Returns a promise that resolves with the response.
+ */
+function sendRuntimeMessage(extensionId, message, sender) {
+	return new Promise((resolve, reject) => {
+		const bgWC = _findBackgroundPage();
+		if (!bgWC) {
+			const extWC = _findExtensionWebContents(extensionId);
+			if (!extWC) {
+				reject(new Error(`No background page for extension ${extensionId}`));
+				return;
+			}
+			_injectAndSend(extWC, extensionId, message, sender, resolve, reject);
+			return;
+		}
+		_injectAndSend(bgWC, extensionId, message, sender, resolve, reject);
+	});
+}
+
+function _injectAndSend(wc, extensionId, message, sender, resolve, reject) {
+	const msgJson = JSON.stringify(message);
+	const senderJson = JSON.stringify(sender || {});
+	const script = `
+		(new Promise((__resolve, __reject) => {
+			try {
+				const __sender = ${senderJson};
+				chrome.runtime.onMessage.__emit(${JSON.stringify(msgJson)}, __sender, __resolve);
+			} catch(e) { __reject(e.message); }
+		})).then(__resolve => { return __resolve; })
+	`;
+	wc.executeJavaScript(script)
+		.then(result => resolve(result))
+		.catch(err => reject(new Error(err.message || 'Message delivery failed')));
+}
+
+/**
+ * Broadcast a message to all extensions that have onMessage listeners.
+ */
+function broadcastRuntimeMessage(message, sender) {
+	for (const [extId] of extensions) {
+		sendRuntimeMessage(extId, message, sender).catch(() => {});
+	}
+}
+
+// ── Badge API ──────────────────────────────────────────────
+const _badgeState = new Map(); // extensionId -> { text, backgroundColor }
+
+function setBadgeText(extensionId, text) {
+	if (!_badgeState.has(extensionId)) _badgeState.set(extensionId, {});
+	_badgeState.get(extensionId).text = text || '';
+	_broadcastBadge(extensionId);
+}
+
+function setBadgeBackgroundColor(extensionId, color) {
+	if (!_badgeState.has(extensionId)) _badgeState.set(extensionId, {});
+	_badgeState.get(extensionId).backgroundColor = color || '';
+	_broadcastBadge(extensionId);
+}
+
+function getBadgeState(extensionId) {
+	return _badgeState.get(extensionId) || { text: '', backgroundColor: '' };
+}
+
+function getAllBadgeStates() {
+	const result = {};
+	for (const [id, state] of _badgeState) {
+		result[id] = state;
+	}
+	return result;
+}
+
+function _broadcastBadge(extensionId) {
+	const state = getBadgeState(extensionId);
+	for (const win of BrowserWindow.getAllWindows()) {
+		if (!win.isDestroyed()) {
+			win.webContents.send('extensions:badge', { extensionId, ...state });
+		}
+	}
+}
+
+// ── Storage change events ───────────────────────────────────
+
+function broadcastStorageChange(extensionId, changes, areaName) {
+	for (const win of BrowserWindow.getAllWindows()) {
+		if (!win.isDestroyed()) {
+			win.webContents.send('extensions:storage-changed', { extensionId, changes, areaName });
+		}
 	}
 }
 
@@ -358,4 +585,11 @@ module.exports = {
 	getExtSession,
 	getExtApi,
 	initContentScriptInjection,
+	sendRuntimeMessage,
+	broadcastRuntimeMessage,
+	setBadgeText,
+	setBadgeBackgroundColor,
+	getBadgeState,
+	getAllBadgeStates,
+	broadcastStorageChange,
 };

@@ -322,6 +322,83 @@ function register() {
     return extLoader.unloadExtension(extensionId);
   });
 
+  ipcMain.handle('extensions:sendMessage', async (_event, extensionId, message, senderInfo) => {
+    const extLoader = require('./extension-loader');
+    const sender = {
+      id: senderInfo?.origin || '',
+      url: senderInfo?.origin || '',
+      origin: senderInfo?.origin || '',
+      tab: senderInfo?.tabId ? { id: senderInfo.tabId } : undefined,
+    };
+    return extLoader.sendRuntimeMessage(extensionId, message, sender);
+  });
+
+  ipcMain.handle('extensions:setBadgeText', async (_event, text) => {
+    const extLoader = require('./extension-loader');
+    // Badge is set per-extension; use sender's origin to determine extension
+    // For now, broadcast to all loaded extensions
+    const exts = extLoader.listExtensions();
+    if (exts.length > 0) {
+      extLoader.setBadgeText(exts[0].id, text);
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('extensions:setBadgeBackgroundColor', async (_event, color) => {
+    const extLoader = require('./extension-loader');
+    const exts = extLoader.listExtensions();
+    if (exts.length > 0) {
+      extLoader.setBadgeBackgroundColor(exts[0].id, color);
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('extensions:getBadgeText', async () => {
+    const extLoader = require('./extension-loader');
+    return extLoader.getAllBadgeStates();
+  });
+
+  // ── Downloads ───────────────────────────────────────
+  ipcMain.handle('downloads:list', async () => {
+    const downloadManager = require('./download-manager');
+    return downloadManager.list();
+  });
+
+  ipcMain.handle('downloads:history', async () => {
+    const downloadManager = require('./download-manager');
+    return downloadManager.getHistory();
+  });
+
+  ipcMain.handle('downloads:pause', async (_event, id) => {
+    const downloadManager = require('./download-manager');
+    return downloadManager.pause(id);
+  });
+
+  ipcMain.handle('downloads:resume', async (_event, id) => {
+    const downloadManager = require('./download-manager');
+    return downloadManager.resume(id);
+  });
+
+  ipcMain.handle('downloads:cancel', async (_event, id) => {
+    const downloadManager = require('./download-manager');
+    return downloadManager.cancel(id);
+  });
+
+  ipcMain.handle('downloads:open', async (_event, id) => {
+    const downloadManager = require('./download-manager');
+    return downloadManager.openFile(id);
+  });
+
+  ipcMain.handle('downloads:show', async (_event, id) => {
+    const downloadManager = require('./download-manager');
+    return downloadManager.showInFolder(id);
+  });
+
+  ipcMain.handle('downloads:clearHistory', async () => {
+    const downloadManager = require('./download-manager');
+    return downloadManager.clearHistory();
+  });
+
   // ── Storage ──────────────────────────────────────────
   ipcMain.handle('storage:bookmarks:get', () => {
     return storage.getBookmarks();

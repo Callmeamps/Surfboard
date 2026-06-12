@@ -116,6 +116,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     load: (extensionPath) => ipcRenderer.invoke('extensions:load', extensionPath),
     list: () => ipcRenderer.invoke('extensions:list'),
     unload: (extensionId) => ipcRenderer.invoke('extensions:unload', extensionId),
+    sendMessage: (extensionId, message, senderInfo) => ipcRenderer.invoke('extensions:sendMessage', extensionId, message, senderInfo),
+    setBadgeText: (text) => ipcRenderer.invoke('extensions:setBadgeText', text),
+    setBadgeBackgroundColor: (color) => ipcRenderer.invoke('extensions:setBadgeBackgroundColor', color),
+    getBadgeText: () => ipcRenderer.invoke('extensions:getBadgeText'),
+    onBadgeChanged: (callback) => ipcRenderer.on('extensions:badge', (_event, data) => callback(data)),
+    onStorageChanged: (callback) => ipcRenderer.on('extensions:storage-changed', (_event, data) => callback(data)),
   },
 
   // ── Cookie management ─────────────────────────────────
@@ -125,6 +131,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     remove: (url, name) => ipcRenderer.invoke('cookies:remove', url, name),
     clear: () => ipcRenderer.invoke('cookies:clear'),
     export: () => ipcRenderer.invoke('cookies:export'),
+  },
+
+  // ── Downloads ────────────────────────────────────────
+  downloads: {
+    list: () => ipcRenderer.invoke('downloads:list'),
+    history: () => ipcRenderer.invoke('downloads:history'),
+    pause: (id) => ipcRenderer.invoke('downloads:pause', id),
+    resume: (id) => ipcRenderer.invoke('downloads:resume', id),
+    cancel: (id) => ipcRenderer.invoke('downloads:cancel', id),
+    open: (id) => ipcRenderer.invoke('downloads:open', id),
+    show: (id) => ipcRenderer.invoke('downloads:show', id),
+    clearHistory: () => ipcRenderer.invoke('downloads:clearHistory'),
+    onUpdated: (callback) => ipcRenderer.on('downloads:updated', (_event, data) => callback(data)),
   },
 
   // ── SSH sessions ─────────────────────────────────────

@@ -23,6 +23,27 @@ jest.mock('../src/main/profiles', () => {
   };
 });
 
+// Mock config
+jest.mock('../config', () => ({
+  github: {
+    clientId: 'test-github-client',
+  },
+  replit: {
+    clientId: 'test-replit-client',
+    deviceCodeUrl: 'https://replit.com/api/auth/device/code',
+    tokenUrl: 'https://replit.com/api/auth/token',
+    apiBase: 'https://replit.com/api',
+    scope: '',
+  },
+  gitpod: {
+    clientId: 'test-gitpod-client',
+    deviceCodeUrl: 'https://gitpod.io/api/oauth/device-code',
+    tokenUrl: 'https://gitpod.io/api/oauth/token',
+    apiBase: 'https://gitpod.io/api',
+    scope: '',
+  },
+}));
+
 const { net } = require('electron');
 const profiles = require('../src/main/profiles');
 const cloudManager = require('../src/main/cloud-manager');
@@ -106,20 +127,17 @@ describe('cloud-manager', () => {
       });
     });
 
-    it('starts Replit device code flow from env endpoints', async () => {
-      const req = withEnv('REPLIT_CLIENT_ID', 'replit-client', async () => {
-        mockRequest({
-          device_code: 'rpl-dc',
-          user_code: 'RPLT-1234',
-          verification_uri: 'https://replit.com/device',
-          verification_uri_complete: 'https://replit.com/device?user_code=RPLT-1234',
-          expires_in: 600,
-          interval: 4,
-        });
-        return cloudManager.startDeviceCodeFlow('replit');
+    it('starts Replit device code flow from config', async () => {
+      mockRequest({
+        device_code: 'rpl-dc',
+        user_code: 'RPLT-1234',
+        verification_uri: 'https://replit.com/device',
+        verification_uri_complete: 'https://replit.com/device?user_code=RPLT-1234',
+        expires_in: 600,
+        interval: 4,
       });
 
-      const result = await req;
+      const result = await cloudManager.startDeviceCodeFlow('replit');
 
       expect(result.userCode).toBe('RPLT-1234');
       expect(result.verificationUriComplete).toBe('https://replit.com/device?user_code=RPLT-1234');
@@ -156,11 +174,9 @@ describe('cloud-manager', () => {
     });
 
     it('saves Replit token by provider', async () => {
-      await withEnv('REPLIT_CLIENT_ID', 'replit-client', async () => {
-        mockRequest({ access_token: 'rpl_token', scope: 'workspaces' });
-        const result = await cloudManager.pollForToken('replit', 'rpl-dc');
-        expect(result).toEqual({ token: 'rpl_token', scope: 'workspaces' });
-      });
+      mockRequest({ access_token: 'rpl_token', scope: 'workspaces' });
+      const result = await cloudManager.pollForToken('replit', 'rpl-dc');
+      expect(result).toEqual({ token: 'rpl_token', scope: 'workspaces' });
 
       expect(profiles.updateCurrentProfile).toHaveBeenCalledWith(
         expect.objectContaining({ cloud_replit_token: 'rpl_token' })
