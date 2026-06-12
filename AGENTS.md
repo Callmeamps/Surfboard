@@ -90,6 +90,8 @@ npm install
 npm test
 ```
 
+**Note:** Tests may consume significant memory. Run tests in CI, not locally. If tests hang or crash locally, push to remote and let CI validate.
+
 ## Architecture Overview
 
 Surfboard is an Electron-based browser with:
