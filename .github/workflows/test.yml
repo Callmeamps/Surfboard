@@ -19,7 +19,7 @@ jobs:
       - name: Run unit tests (group A)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
-            --testPathPatterns='test/(actions|ai-client|browser-shell|canvas-pages|cloud-manager|cookie-manager|data-pipeline|download-manager|editor-engine|extension-loader|inspector|ipc-shell|ipc-tab-order|links-dashboard|miniapps|mode-manager|papertm-drag)\.test\.js'
+            --testPathPatterns='test/(actions|ai-client|browser-shell|canvas-pages|cloud-manager|cookie-manager|data-pipeline|download-manager|editor-engine)\.test\.js'
 
   test-b:
     runs-on: ubuntu-latest
@@ -31,13 +31,25 @@ jobs:
       - name: Run unit tests (group B)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
-            --testPathPatterns='test/(papertm-minimap|pdf-viewer|profiles|renderer-webviews|right-sidebar|session-persistence|settings-page|shortcut-menu|ssh-manager|storage|tab-groups|tab-lifecycle|tab-manager|tab-pages|trust-manager|workflows)\.test\.js'
+            --testPathPatterns='test/(extension-loader|inspector|ipc-shell|ipc-tab-order|links-dashboard|miniapps|mode-manager|papertm-drag|papertm-minimap)\.test\.js'
+
+  test-c:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v3
+      - run: npm ci
+      - name: Run unit tests (group C)
+        run: |
+          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
+            --testPathPatterns='test/(pdf-viewer|profiles|renderer-webviews|right-sidebar|session-persistence|settings-page|shortcut-menu|ssh-manager|storage|tab-groups|tab-lifecycle|tab-manager|tab-pages|trust-manager|workflows)\.test\.js'
 
   # Build distributables
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [test-a, test-b]
+    needs: [test-a, test-b, test-c]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
@@ -58,7 +70,7 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [test-a, test-b]
+    needs: [test-a, test-b, test-c]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
@@ -79,7 +91,7 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [test-a, test-b]
+    needs: [test-a, test-b, test-c]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
