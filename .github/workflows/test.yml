@@ -8,84 +8,89 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  # Unit tests — split into 2 jobs to stay under 7GB runner RAM
-  test-a:
+  # ── Heavy tests (need feature-platform setup) ──────────────
+  # Split into small groups — setup evals 8 modules, stays in memory
+  test-heavy-1:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
       - run: npm ci
-      - name: Run unit tests (group A)
+      - name: Run heavy tests (actions, ai-client)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
-            --testPathPatterns='test/(actions|ai-client|browser-shell|canvas-pages|cloud-manager|cookie-manager)\.test\.js'
+            --testPathPatterns='test/(actions|ai-client)\.test\.js'
 
-  test-a2:
+  test-heavy-2:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
       - run: npm ci
-      - name: Run unit tests (group A2)
+      - name: Run heavy tests (data-pipeline, download-manager)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
-            --testPathPatterns='test/data-pipeline\.test\.js'
+            --config jest.light.config.js \
+            --testPathPatterns='test/(data-pipeline|download-manager)\.test\.js'
 
-  test-a3:
+  test-heavy-3:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
       - run: npm ci
-      - name: Run unit tests (group A3)
-        run: |
-          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
-            --testPathPatterns='test/download-manager\.test\.js'
-
-  test-a4:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
-      - name: Run unit tests (group A4)
+      - name: Run heavy tests (editor-engine)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
             --testPathPatterns='test/editor-engine\.test\.js'
 
-  test-b:
+  test-heavy-4:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
       - run: npm ci
-      - name: Run unit tests (group B)
+      - name: Run heavy tests (inspector, mode-manager)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
-            --testPathPatterns='test/(extension-loader|inspector|ipc-shell|ipc-tab-order|links-dashboard|miniapps|mode-manager|papertm-drag|papertm-minimap)\.test\.js'
+            --testPathPatterns='test/(inspector|mode-manager)\.test\.js'
 
-  test-c:
+  test-heavy-5:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
       - run: npm ci
-      - name: Run unit tests (group C)
+      - name: Run heavy tests (miniapps, trust-manager, workflows)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
-            --testPathPatterns='test/(pdf-viewer|profiles|renderer-webviews|right-sidebar|session-persistence|settings-page|shortcut-menu|ssh-manager|storage|tab-groups|tab-lifecycle|tab-manager|tab-pages|trust-manager|workflows)\.test\.js'
+            --testPathPatterns='test/(miniapps|trust-manager|workflows)\.test\.js'
 
-  # Build distributables
+  # ── Light tests (no feature-platform setup) ────────────────
+  # Can run together — no heavy eval'd modules
+  test-light:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v3
+      - run: npm ci
+      - name: Run light tests
+        run: |
+          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
+            --config jest.light.config.js \
+            --testPathPatterns='test/(browser-shell|canvas-pages|cloud-manager|cookie-manager|extension-loader|ipc-shell|ipc-tab-order|links-dashboard|papertm-drag|papertm-minimap|pdf-viewer|profiles|renderer-webviews|right-sidebar|session-persistence|settings-page|shortcut-menu|ssh-manager|storage|tab-groups|tab-lifecycle|tab-manager|tab-pages)\.test\.js'
+
+  # ── Build ──────────────────────────────────────────────────
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [test-a, test-a2, test-a3, test-a4, test-b, test-c]
+    needs: [test-heavy-1, test-heavy-2, test-heavy-3, test-heavy-4, test-heavy-5, test-light]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
@@ -102,11 +107,11 @@ jobs:
           path: dist/linux-unpacked/**
           if-no-files-found: error
 
-  # Jest integration tests (launch real Electron)
+  # ── Integration tests (launch real Electron) ───────────────
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [test-a, test-a2, test-a3, test-a4, test-b, test-c]
+    needs: [test-heavy-1, test-heavy-2, test-heavy-3, test-heavy-4, test-heavy-5, test-light]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
@@ -123,11 +128,11 @@ jobs:
         env:
           DISPLAY: :99
 
-  # E2E smoke test (requires Xvfb for Electron)
+  # ── E2E smoke test ─────────────────────────────────────────
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [test-a, test-a2, test-a3, test-a4, test-b, test-c]
+    needs: [test-heavy-1, test-heavy-2, test-heavy-3, test-heavy-4, test-heavy-5, test-light]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
