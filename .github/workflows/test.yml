@@ -2,21 +2,30 @@ name: Test
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'handoffs/**'
+      - '.fallow/**'
+      - 'docs/**'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'handoffs/**'
+      - '.fallow/**'
+      - 'docs/**'
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
 jobs:
   # ── Heavy tests (need feature-platform setup) ──────────────
-  # Split into small groups — setup evals 8 modules, stays in memory
   test-heavy-1:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
+      - uses: ./.github/actions/setup
       - name: Run heavy tests (actions, ai-client)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
@@ -26,20 +35,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
+      - uses: ./.github/actions/setup
       - name: Run heavy tests (data-pipeline)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
             --testPathPatterns='test/data-pipeline\.test\.js'
+
   test-heavy-2b:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
+      - uses: ./.github/actions/setup
       - name: Run heavy tests (download-manager)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
@@ -50,9 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
+      - uses: ./.github/actions/setup
       - name: Run heavy tests (editor-engine)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
@@ -62,9 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
+      - uses: ./.github/actions/setup
       - name: Run heavy tests (inspector, mode-manager)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
@@ -74,74 +76,44 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
+      - uses: ./.github/actions/setup
       - name: Run heavy tests (miniapps, trust-manager, workflows)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
             --testPathPatterns='test/(miniapps|trust-manager|workflows)\.test\.js'
 
   # ── Light tests (no feature-platform setup) ────────────────
-  # Can run together — no heavy eval'd modules
-  test-light-a:
+  test-light:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: A
+            pattern: 'test/(browser-shell|canvas-pages|cloud-manager|cookie-manager|extension-loader)\.test\.js'
+          - name: B
+            pattern: 'test/(ipc-shell|ipc-tab-order|links-dashboard|papertm-drag|papertm-minimap|pdf-viewer)\.test\.js'
+          - name: C
+            pattern: 'test/(profiles|renderer-webviews|right-sidebar|session-persistence|settings-page|shortcut-menu)\.test\.js'
+          - name: D
+            pattern: 'test/(ssh-manager|storage|tab-groups|tab-lifecycle|tab-manager|tab-pages)\.test\.js'
+    name: light-${{ matrix.name }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
-      - name: Run light tests (batch A)
+      - uses: ./.github/actions/setup
+      - name: Run light tests (batch ${{ matrix.name }})
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
             --config jest.light.config.js \
-            --testPathPatterns='test/(browser-shell|canvas-pages|cloud-manager|cookie-manager|extension-loader)\.test\.js'
-  test-light-b:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
-      - name: Run light tests (batch B)
-        run: |
-          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
-            --config jest.light.config.js \
-            --testPathPatterns='test/(ipc-shell|ipc-tab-order|links-dashboard|papertm-drag|papertm-minimap|pdf-viewer)\.test\.js'
-  test-light-c:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
-      - name: Run light tests (batch C)
-        run: |
-          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
-            --config jest.light.config.js \
-            --testPathPatterns='test/(profiles|renderer-webviews|right-sidebar|session-persistence|settings-page|shortcut-menu)\.test\.js'
-  test-light-d:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
-      - name: Run light tests (batch D)
-        run: |
-          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
-            --config jest.light.config.js \
-            --testPathPatterns='test/(ssh-manager|storage|tab-groups|tab-lifecycle|tab-manager|tab-pages)\.test\.js'
+            --testPathPatterns='${{ matrix.pattern }}'
 
   # ── Build ──────────────────────────────────────────────────
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [test-heavy-1, test-heavy-2, test-heavy-2b, test-heavy-3, test-heavy-4, test-heavy-5, test-light-a, test-light-b, test-light-c, test-light-d]
+    needs: [test-heavy-1, test-heavy-2, test-heavy-2b, test-heavy-3, test-heavy-4, test-heavy-5, test-light]
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
+      - uses: ./.github/actions/setup
       - name: Install system deps for Electron
         run: |
           sudo apt-get update -qq
@@ -159,11 +131,9 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [test-heavy-1, test-heavy-2, test-heavy-2b, test-heavy-3, test-heavy-4, test-heavy-5, test-light-a, test-light-b, test-light-c, test-light-d]
+    needs: [test-heavy-1, test-heavy-2, test-heavy-2b, test-heavy-3, test-heavy-4, test-heavy-5, test-light]
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
+      - uses: ./.github/actions/setup
       - name: Install system deps for Electron
         run: |
           sudo apt-get update -qq
@@ -181,11 +151,9 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [test-heavy-1, test-heavy-2, test-heavy-2b, test-heavy-3, test-heavy-4, test-heavy-5, test-light-a, test-light-b, test-light-c, test-light-d]
+    needs: [test-heavy-1, test-heavy-2, test-heavy-2b, test-heavy-3, test-heavy-4, test-heavy-5, test-light]
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v3
-      - run: npm ci
+      - uses: ./.github/actions/setup
       - name: Install system deps for Electron
         run: |
           sudo apt-get update -qq
