@@ -1,3 +1,5 @@
+require('./setup-feature-platform');
+
 /**
  * WorkflowEngine tests
  * Covers: init/enable/disable, trust gating, step registration, workflow CRUD,

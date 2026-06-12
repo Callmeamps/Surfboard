@@ -1,3 +1,5 @@
+require('./setup-feature-platform');
+
 /**
  * AIClient tests
  * Covers: init/enable/disable, context extraction, completion, workflow gen,

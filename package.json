@@ -40,9 +40,6 @@
     }
   },
   "jest": {
-    "setupFilesAfterEnv": [
-      "./test/setup-feature-platform.js"
-    ],
     "testEnvironment": "jest-environment-jsdom",
     "testPathIgnorePatterns": [
       "/node_modules/",

@@ -1,3 +1,5 @@
+require('./setup-feature-platform');
+
 /**
  * TrustManager tests
  * Each test is fully self-contained.

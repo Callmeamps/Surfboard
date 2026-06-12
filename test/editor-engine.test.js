@@ -1,3 +1,5 @@
+require('./setup-feature-platform');
+
 /**
  * EditEngine tests
  * Each test is fully self-contained — creates its own root, enables, tests, disables.

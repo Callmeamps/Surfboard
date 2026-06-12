@@ -1,3 +1,5 @@
+require('./setup-feature-platform');
+
 /**
  * ActionRegistry tests
  * Covers: init/enable/disable, trust gating, register/unregister, query,

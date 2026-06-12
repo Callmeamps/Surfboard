@@ -1,3 +1,5 @@
+require('./setup-feature-platform');
+
 /**
  * ModeManager tests
  * Each test is fully self-contained — explicitly sets starting mode.

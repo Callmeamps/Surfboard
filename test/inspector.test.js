@@ -1,3 +1,5 @@
+require('./setup-feature-platform');
+
 /**
  * Inspector tests
  * Covers: init/enable/disable, trust gating, query, inspect, overlays,

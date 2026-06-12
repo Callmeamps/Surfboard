@@ -1,3 +1,5 @@
+require('./setup-feature-platform');
+
 /**
  * DataPipeline tests
  * Covers: init/enable/disable, scraping, mapping, ETL, trust gating.

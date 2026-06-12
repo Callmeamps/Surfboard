@@ -20,8 +20,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ── Heavy tests (need feature-platform setup) ──────────────
+  # ── PR-only: diff-based testing ─────────────────────────────
+  test-diff:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: ./.github/actions/setup
+      - name: Detect changed tests
+        id: changes
+        run: |
+          CHANGED=$(./scripts/changed-tests.sh origin/main HEAD)
+          if [ "$CHANGED" = "CONFIG_CHANGED" ]; then
+            echo "run_all=true" >> $GITHUB_OUTPUT
+            echo "Config changed — running full suite"
+          elif [ -z "$CHANGED" ] || [ "$CHANGED" = "No changes detected" ] || [ "$CHANGED" = "No test files affected" ]; then
+            echo "run_all=false" >> $GITHUB_OUTPUT
+            echo "No test changes — skipping"
+          else
+            # Convert to jest pattern
+            PATTERN=$(echo "$CHANGED" | tr '\n' '|' | sed 's/|$//' | sed 's|test/||g' | sed 's|\.test\.js||g')
+            echo "pattern=$PATTERN" >> $GITHUB_OUTPUT
+            echo "run_all=false" >> $GITHUB_OUTPUT
+            echo "Affected tests: $CHANGED"
+          fi
+      - name: Run affected tests
+        if: steps.changes.outputs.run_all != 'true' && steps.changes.outputs.pattern != ''
+        run: |
+          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
+            --testPathPatterns='${{ steps.changes.outputs.pattern }}'
+      - name: Run full suite (config changed)
+        if: steps.changes.outputs.run_all == 'true'
+        run: |
+          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit
+
+  # ── Main-only: full test suite ──────────────────────────────
+  # Heavy tests (need feature-platform setup)
   test-heavy-1:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -32,6 +68,7 @@ jobs:
             --testPathPatterns='test/(actions|ai-client)\.test\.js'
 
   test-heavy-2:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -41,18 +78,10 @@ jobs:
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
             --testPathPatterns='test/data-pipeline\.test\.js'
 
-  test-heavy-2b:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: ./.github/actions/setup
-      - name: Run heavy tests (download-manager)
-        run: |
-          NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
-            --config jest.light.config.js \
-            --testPathPatterns='test/download-manager\.test\.js'
+
 
   test-heavy-3:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -63,6 +92,7 @@ jobs:
             --testPathPatterns='test/editor-engine\.test\.js'
 
   test-heavy-4:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -73,17 +103,19 @@ jobs:
             --testPathPatterns='test/(inspector|mode-manager)\.test\.js'
 
   test-heavy-5:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: ./.github/actions/setup
-      - name: Run heavy tests (miniapps, trust-manager, workflows)
+      - name: Run heavy tests (trust-manager, workflows)
         run: |
           NODE_OPTIONS='--max-old-space-size=4096 --expose-gc' ./node_modules/.bin/jest --verbose --runInBand --forceExit \
-            --testPathPatterns='test/(miniapps|trust-manager|workflows)\.test\.js'
+            --testPathPatterns='test/(trust-manager|workflows)\.test\.js'
 
-  # ── Light tests (no feature-platform setup) ────────────────
+  # Light tests (no feature-platform setup)
   test-light:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -91,9 +123,9 @@ jobs:
       matrix:
         include:
           - name: A
-            pattern: 'test/(browser-shell|canvas-pages|cloud-manager|cookie-manager|extension-loader)\.test\.js'
+            pattern: 'test/(browser-shell|canvas-pages|cloud-manager|cookie-manager|download-manager|extension-loader)\.test\.js'
           - name: B
-            pattern: 'test/(ipc-shell|ipc-tab-order|links-dashboard|papertm-drag|papertm-minimap|pdf-viewer)\.test\.js'
+            pattern: 'test/(ipc-shell|ipc-tab-order|links-dashboard|miniapps|papertm-drag|papertm-minimap|pdf-viewer)\.test\.js'
           - name: C
             pattern: 'test/(profiles|renderer-webviews|right-sidebar|session-persistence|settings-page|shortcut-menu)\.test\.js'
           - name: D
@@ -109,9 +141,10 @@ jobs:
 
   # ── Build ──────────────────────────────────────────────────
   build:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [test-heavy-1, test-heavy-2, test-heavy-2b, test-heavy-3, test-heavy-4, test-heavy-5, test-light]
+    needs: [test-heavy-1, test-heavy-2, test-heavy-3, test-heavy-4, test-heavy-5, test-light]
     steps:
       - uses: ./.github/actions/setup
       - name: Install system deps for Electron
@@ -129,9 +162,10 @@ jobs:
 
   # ── Integration tests (launch real Electron) ───────────────
   integration:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [test-heavy-1, test-heavy-2, test-heavy-2b, test-heavy-3, test-heavy-4, test-heavy-5, test-light]
+    needs: [test-heavy-1, test-heavy-2, test-heavy-3, test-heavy-4, test-heavy-5, test-light]
     steps:
       - uses: ./.github/actions/setup
       - name: Install system deps for Electron
@@ -149,9 +183,10 @@ jobs:
 
   # ── E2E smoke test ─────────────────────────────────────────
   e2e:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [test-heavy-1, test-heavy-2, test-heavy-2b, test-heavy-3, test-heavy-4, test-heavy-5, test-light]
+    needs: [test-heavy-1, test-heavy-2, test-heavy-3, test-heavy-4, test-heavy-5, test-light]
     steps:
       - uses: ./.github/actions/setup
       - name: Install system deps for Electron
@@ -166,3 +201,15 @@ jobs:
           xvfb-run --auto-servernum mise run e2e
         env:
           DISPLAY: :99
+
+  # ── Status check (single required check) ───────────────────
+  ci:
+    if: always()
+    runs-on: ubuntu-latest
+    needs: [test-diff, test-heavy-1, test-heavy-2, test-heavy-3, test-heavy-4, test-heavy-5, test-light, build, integration, e2e]
+    steps:
+      - name: Check all jobs
+        run: |
+          # Skip test-diff if it was skipped (main push)
+          RESULT='${{ toJSON(needs.*.result) }}'
+          echo "$RESULT" | grep -q '"failure"' && exit 1 || echo 'All jobs passed'
