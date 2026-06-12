@@ -2,6 +2,22 @@
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
+## 🚨 CRITICAL: NEVER RUN TEST SUITE LOCALLY 🚨
+
+The full Jest suite (`npm test`) OOMs this machine (32GB heap insufficient).
+It hangs for minutes, crashes, and corrupts your work session.
+
+**This is a hard rule — not a suggestion.**
+
+- Do NOT run `npm test`, `jest`, or any full test command locally
+- Do NOT run test suites that require loading many files
+- Run individual test files ONLY if they're small and isolated (`npx jest path/to/small.test.js --forceExit --no-cache`)
+- If a single test file hangs, abort immediately — do NOT retry
+- All validation happens in CI after push
+
+✅ **Allowed**: `npx jest test/your-new-module.test.js --forceExit --no-cache` (small, focused)
+❌ **Forbidden**: `npm test`, `jest`, `npx jest` (no path), `npx jest --runInBand`
+
 ## Quick Reference
 
 ```bash
@@ -87,10 +103,8 @@ bd close <id>         # Complete work
 
 ```bash
 npm install
-npm test
+# DO NOT run npm test locally — see warning above
 ```
-
-**Note:** Tests may consume significant memory. Run tests in CI, not locally. If tests hang or crash locally, push to remote and let CI validate.
 
 ## Architecture Overview
 
