@@ -21,7 +21,7 @@ beforeAll(async () => {
     env: { ...process.env },
   });
 
-  const window = await electronApp.firstWindow();
+  const window = await electronApp.firstWindow({ timeout: 60000 });
   const title = await window.title();
 
   if (title.includes('Extension') || title.includes('Background')) {

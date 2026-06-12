@@ -16,7 +16,7 @@ async function main() {
 
   // Wait for the main window (not extension background pages)
   console.log("Waiting for main window...");
-  const window = await electronApp.firstWindow();
+  const window = await electronApp.firstWindow({ timeout: 60000 });
   
   // If we got an extension page, find the main window
   const title = await window.title();
