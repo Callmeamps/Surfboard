@@ -54,12 +54,12 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "electron": "^42.3.3",
     "pdfjs-dist": "^6.0.227",
     "ssh2": "^1.17.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "electron": "^42.3.3",
     "electron-builder": "^26.0.0",
     "electron-reloader": "^1.2.3",
     "jest": "^30.4.2",
