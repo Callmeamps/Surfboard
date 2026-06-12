@@ -6,6 +6,7 @@ describe('TabPages', () => {
   let container;
 
   beforeEach(() => {
+    jest.useRealTimers();
     document.body.innerHTML = `
       <div id="app">
         <div id="internal-pages"></div>
