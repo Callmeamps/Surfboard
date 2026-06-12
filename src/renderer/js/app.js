@@ -71,17 +71,7 @@
   const $sidebarSettingsBtn = document.getElementById('sidebar-settings-btn');
   const $sidebarProfileBtn  = document.getElementById('sidebar-profile-btn');
 
-  const $bmAddBtn           = document.getElementById('bookmarks-add-btn');
-  const $bmImportBtn        = document.getElementById('bookmarks-import-btn');
-  const $bmExportBtn        = document.getElementById('bookmarks-export-btn');
-  const $bmSearch           = document.getElementById('bookmarks-search');
-  const $bmDialogOverlay    = document.getElementById('bm-dialog-overlay');
-  const $bmDialogTitle      = document.getElementById('bm-dialog-title');
-  const $bmDialogLabel      = document.getElementById('bm-dialog-label');
-  const $bmDialogUrl        = document.getElementById('bm-dialog-url');
-  const $bmDialogSave       = document.getElementById('bm-dialog-save');
-  const $bmDialogCancel     = document.getElementById('bm-dialog-cancel');
-  const $bmDialogClose      = document.getElementById('bm-dialog-close');
+
   const $toastContainer     = document.getElementById('toast-container');
   const $changelogOverlay   = document.getElementById('changelog-overlay');
   const $changelogBody      = document.getElementById('changelog-body');
@@ -462,102 +452,8 @@
     }, duration);
   }
 
-  // ── Bookmarks ────────────────────────────────────────────
-  let _allBookmarks = [];
-
-  async function _loadBookmarks() {
-    try {
-      const bms = await _storage.getBookmarks?.() || [];
-      _allBookmarks = bms;
-      _renderBookmarks(bms);
-    } catch {}
-  }
-
-  function _renderBookmarks(bms) {
-    $bookmarks.innerHTML = '';
-    if (!bms.length) { $bookmarks.innerHTML = '<div style="padding:12px;color:var(--text-faint);font-size:12px;text-align:center">No bookmarks</div>'; return; }
-    bms.forEach(bm => {
-      const el = document.createElement('div');
-      el.className = 'bookmark-item'; el.dataset.url = bm.url; el.dataset.id = bm.id;
-      el.innerHTML = `<span class="icon">${bm.icon || '🔖'}</span><span class="label">${bm.label}</span>`;
-      el.addEventListener('click', () => _tabs.create(bm.url));
-      el.addEventListener('contextmenu', (e) => { e.preventDefault(); _showBmContextMenu(e, bm); });
-      $bookmarks.appendChild(el);
-    });
-  }
-
-  function _showBmContextMenu(e, bm) {
-    const existing = document.querySelector('.bm-contextmenu');
-    if (existing) existing.remove();
-    const menu = document.createElement('div');
-    menu.className = 'bm-contextmenu';
-    menu.style.cssText = `position:fixed;top:${e.clientY}px;left:${e.clientX}px;z-index:500;`;
-    menu.innerHTML = '<div class="bm-ctx-item" data-action="edit">✏️ Edit</div><div class="bm-ctx-item" data-action="delete">🗑️ Delete</div>';
-    menu.querySelector('[data-action="edit"]').addEventListener('click', () => { menu.remove(); _openBmDialog(bm); });
-    menu.querySelector('[data-action="delete"]').addEventListener('click', async () => { menu.remove(); await _storage.removeBookmark?.(bm.id); _loadBookmarks(); _toast('Bookmark removed'); });
-    document.body.appendChild(menu);
-    const close = () => { menu.remove(); document.removeEventListener('click', close); };
-    setTimeout(() => document.addEventListener('click', close), 0);
-  }
-
-  function _openBmDialog(bm = null) {
-    if (!$bmDialogOverlay) return;
-    $bmDialogTitle.textContent = bm ? 'Edit Bookmark' : 'Add Bookmark';
-    $bmDialogLabel.value = bm ? bm.label : '';
-    $bmDialogUrl.value = bm ? bm.url : '';
-    $bmDialogOverlay.classList.remove('hidden');
-    $bmDialogLabel.focus();
-  }
-
-  async function _saveBmDialog() {
-    const label = $bmDialogLabel.value.trim();
-    const url = $bmDialogUrl.value.trim();
-    if (!label || !url) { _toast('Label and URL required'); return; }
-    await _storage.addBookmark?.({ label, url, icon: '🔖' });
-    $bmDialogOverlay.classList.add('hidden');
-    _loadBookmarks();
-    _toast('Bookmark saved');
-  }
-
-  // ── Import / Export ──────────────────────────────────────
-  function _exportBookmarks() {
-    if (!_allBookmarks.length) { _toast('No bookmarks to export'); return; }
-    let html = '<!DOCTYPE NETSCAPE-Bookmark-file-1><META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8"><TITLE>Bookmarks</TITLE><H1>Bookmarks</H1><DL><p>';
-    _allBookmarks.forEach(bm => { html += `<DT><A HREF="${bm.url}">${bm.label}</A>`; });
-    html += '</DL><p>';
-    const blob = new Blob([html], { type: 'text/html' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'surfboard-bookmarks.html';
-    a.click();
-    URL.revokeObjectURL(a.href);
-    _toast(`Exported ${_allBookmarks.length} bookmarks`);
-  }
-
-  async function _importBookmarks() {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = '.html';
-    input.onchange = async () => {
-      try {
-        const text = await input.files[0].text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'text/html');
-        const links = doc.querySelectorAll('a');
-        let imported = 0;
-        links.forEach(a => {
-          const url = a.getAttribute('href');
-          const label = a.textContent;
-          if (url && label && !_allBookmarks.find(b => b.url === url)) {
-            _storage.addBookmark?.({ label, url, icon: '🔖' });
-            imported++;
-          }
-        });
-        _loadBookmarks();
-        _toast(`Imported ${imported} bookmarks`);
-      } catch { _toast('Import failed'); }
-    };
-    input.click();
-  }
+  // ── Bookmarks (delegated to bookmarks.js module) ───────
+  function _loadBookmarks() { window.Bookmarks?.load?.(); }
 
   // ── History ──────────────────────────────────────────────
   function _dateGroup(ts) {
@@ -1298,20 +1194,8 @@
       _loadBookmarks();
       _toast('Bookmarked');
     });
-    $bmAddBtn?.addEventListener('click', () => _openBmDialog());
-    $bmImportBtn?.addEventListener('click', _importBookmarks);
-    $bmExportBtn?.addEventListener('click', _exportBookmarks);
-    $bmSearch?.addEventListener('input', () => {
-      const q = $bmSearch.value.toLowerCase();
-      const filtered = q ? _allBookmarks.filter(b => b.label.toLowerCase().includes(q) || b.url.toLowerCase().includes(q)) : _allBookmarks;
-      _renderBookmarks(filtered);
-    });
-    $bmDialogSave?.addEventListener('click', _saveBmDialog);
-    $bmDialogCancel?.addEventListener('click', () => $bmDialogOverlay.classList.add('hidden'));
-    $bmDialogClose?.addEventListener('click', () => $bmDialogOverlay.classList.add('hidden'));
-    $bmDialogOverlay?.addEventListener('click', (e) => { if (e.target === $bmDialogOverlay) $bmDialogOverlay.classList.add('hidden'); });
-    $bmDialogLabel?.addEventListener('keydown', (e) => { if (e.key === 'Enter') $bmDialogUrl.focus(); });
-    $bmDialogUrl?.addEventListener('keydown', (e) => { if (e.key === 'Enter') _saveBmDialog(); });
+    // Bookmarks module
+    try { window.Bookmarks?.init?.({ storage: _storage, tabs: _tabs, toast: _toast }); } catch (e) { console.warn('[init] Bookmarks:', e.message); }
 
     // Profile button
     try { $sidebarProfileBtn?.addEventListener('click', () => window.ProfilesModule?.toggleSettingsPanel()); } catch (e) { console.warn('[init] profileBtn:', e.message); }
