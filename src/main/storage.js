@@ -242,6 +242,24 @@ function clearTabOrder() {
   profiles.clearProfileTabOrder();
 }
 
+// ── Workflows ─────────────────────────────────────────────
+
+function getWorkflows() {
+  return profiles.getProfileWorkflows();
+}
+
+function addWorkflow(workflow) {
+  return profiles.addProfileWorkflow(workflow);
+}
+
+function updateWorkflow(id, patch) {
+  return profiles.updateProfileWorkflow(id, patch);
+}
+
+function removeWorkflow(id) {
+  return profiles.removeProfileWorkflow(id);
+}
+
 // ── Module exports ──────────────────────────────────────────
 
 module.exports = {
@@ -261,6 +279,11 @@ module.exports = {
   loadTabOrder,
   saveTabOrder,
   clearTabOrder,
+  // Workflows
+  getWorkflows,
+  addWorkflow,
+  updateWorkflow,
+  removeWorkflow,
   // Changelog
   getChangelogData,
   shouldShowChangelog,

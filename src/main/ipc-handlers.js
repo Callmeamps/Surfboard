@@ -427,6 +427,23 @@ function register() {
     return profiles.removeProfileEnvironment(id);
   });
 
+  // ── Workflows ──────────────────────────────────────────
+  ipcMain.handle('storage:workflows:list', () => {
+    return storage.getWorkflows();
+  });
+
+  ipcMain.handle('storage:workflows:add', (_event, workflow) => {
+    return storage.addWorkflow(workflow);
+  });
+
+  ipcMain.handle('storage:workflows:update', (_event, id, patch) => {
+    return storage.updateWorkflow(id, patch);
+  });
+
+  ipcMain.handle('storage:workflows:remove', (_event, id) => {
+    return storage.removeWorkflow(id);
+  });
+
   // ── Cookie management ────────────────────────────────
   ipcMain.handle('cookies:get', async (_event, filter) => {
     const ses = session.defaultSession;

@@ -445,6 +445,57 @@ function removeProfileEnvironment(id, profileId) {
   return true;
 }
 
+// ── Workflows ─────────────────────────────────────────
+
+function getProfileWorkflows(profileId) {
+  _ensureInit();
+  const pid = profileId || getCurrentProfileId();
+  const data = _readProfileData(pid);
+  return data?.workflows ? [...data.workflows] : [];
+}
+
+function addProfileWorkflow(workflow, profileId) {
+  _ensureInit();
+  const pid = profileId || getCurrentProfileId();
+  const data = _readProfileData(pid) || { bookmarks: [], history: [], settings: {}, environments: [], workflows: [] };
+  if (!Array.isArray(data.workflows)) data.workflows = [];
+  const wf = {
+    id: workflow.id || 'wf-' + Math.random().toString(36).substring(2, 10),
+    name: workflow.name || 'Untitled',
+    description: workflow.description || '',
+    steps: workflow.steps || [],
+    createdAt: workflow.createdAt || Date.now(),
+    updatedAt: workflow.updatedAt || Date.now(),
+  };
+  data.workflows.push(wf);
+  _writeProfileData(pid, data);
+  return { ...wf };
+}
+
+function updateProfileWorkflow(id, patch, profileId) {
+  _ensureInit();
+  const pid = profileId || getCurrentProfileId();
+  const data = _readProfileData(pid);
+  if (!data?.workflows) return null;
+  const idx = data.workflows.findIndex(w => w.id === id);
+  if (idx === -1) return null;
+  Object.assign(data.workflows[idx], patch, { updatedAt: Date.now() });
+  _writeProfileData(pid, data);
+  return { ...data.workflows[idx] };
+}
+
+function removeProfileWorkflow(id, profileId) {
+  _ensureInit();
+  const pid = profileId || getCurrentProfileId();
+  const data = _readProfileData(pid);
+  if (!data?.workflows) return false;
+  const idx = data.workflows.findIndex(w => w.id === id);
+  if (idx === -1) return false;
+  data.workflows.splice(idx, 1);
+  _writeProfileData(pid, data);
+  return true;
+}
+
 // ── Session partition ──────────────────────────────────
 
 function getSessionPartition(profileId) {
@@ -514,6 +565,12 @@ module.exports = {
   addProfileEnvironment,
   updateProfileEnvironment,
   removeProfileEnvironment,
+
+  // Workflows
+  getProfileWorkflows,
+  addProfileWorkflow,
+  updateProfileWorkflow,
+  removeProfileWorkflow,
 
   // Session
   getSessionPartition,

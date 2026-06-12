@@ -72,6 +72,53 @@
   function getAllSteps() { return Array.from(_steps.values()); }
 
   // ── Workflow CRUD ──────────────────────────────────────
+  // ── Persistence helpers ────────────────────────────────
+  function _persistSave(wf) {
+    try {
+      const api = window.electronAPI?.storage?.workflows;
+      if (!api) return;
+      const existing = _persistIds.has(wf.id);
+      if (existing) {
+        api.update(wf.id, { name: wf.name, description: wf.description, steps: wf.steps });
+      } else {
+        api.add({ id: wf.id, name: wf.name, description: wf.description, steps: wf.steps, createdAt: wf.createdAt });
+        _persistIds.add(wf.id);
+      }
+    } catch (err) {
+      console.error('[WorkflowEngine] persist save failed:', err);
+    }
+  }
+
+  function _persistRemove(id) {
+    try {
+      const api = window.electronAPI?.storage?.workflows;
+      if (!api) return;
+      api.remove(id);
+      _persistIds.delete(id);
+    } catch (err) {
+      console.error('[WorkflowEngine] persist remove failed:', err);
+    }
+  }
+
+  let _persistIds = new Set();
+
+  async function _loadFromStorage() {
+    try {
+      const api = window.electronAPI?.storage?.workflows;
+      if (!api) return;
+      const list = await api.list();
+      if (!Array.isArray(list)) return;
+      for (const wf of list) {
+        if (wf && wf.id && wf.name) {
+          _workflows.set(wf.id, { ...wf });
+          _persistIds.add(wf.id);
+        }
+      }
+    } catch (err) {
+      console.error('[WorkflowEngine] load from storage failed:', err);
+    }
+  }
+
   function createWorkflow(desc) {
     if (!desc || !desc.name) return null;
     const id = desc.id || _uid();
@@ -89,6 +136,7 @@
       updatedAt: Date.now(),
     };
     _workflows.set(id, wf);
+    _persistSave(wf);
     _notify('workflow-created', { id, workflow: wf });
     return wf;
   }
@@ -97,6 +145,7 @@
     const wf = _workflows.get(id);
     if (!wf) return null;
     Object.assign(wf, patch, { updatedAt: Date.now() });
+    _persistSave(wf);
     _notify('workflow-updated', { id, workflow: wf });
     return wf;
   }
@@ -104,6 +153,7 @@
   function deleteWorkflow(id) {
     if (!_workflows.has(id)) return false;
     _workflows.delete(id);
+    _persistRemove(id);
     _notify('workflow-deleted', { id });
     return true;
   }
@@ -791,6 +841,7 @@
   // ── Public API ─────────────────────────────────────────
   function init(deps) {
     _root = deps?.root || null;
+    _loadFromStorage();
   }
 
   function enable(overrideRoot) {
@@ -837,6 +888,7 @@
     disable();
     _workflows = new Map();
     _steps = new Map();
+    _persistIds = new Set();
     _running = null;
     _runState = null;
     _root = null;

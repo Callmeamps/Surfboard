@@ -109,6 +109,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       update: (id, patch) => ipcRenderer.invoke('storage:environments:update', id, patch),
       remove: (id) => ipcRenderer.invoke('storage:environments:remove', id),
     },
+    workflows: {
+      list: () => ipcRenderer.invoke('storage:workflows:list'),
+      add: (wf) => ipcRenderer.invoke('storage:workflows:add', wf),
+      update: (id, patch) => ipcRenderer.invoke('storage:workflows:update', id, patch),
+      remove: (id) => ipcRenderer.invoke('storage:workflows:remove', id),
+    },
   },
 
   // ── Extensions ────────────────────────────────────────
