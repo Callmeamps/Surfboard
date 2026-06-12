@@ -50,6 +50,9 @@
       ['SSH Sessions', 'Alt', 'Shift', 'S'],
       ['Cloud Sessions', 'Alt', 'Shift', 'O'],
     ]},
+    { title: 'Miniapps', items: [
+      ['Toggle miniapps', 'Ctrl', 'Shift', '0'],
+    ]},
     { title: 'Print', items: [
       ['Print page', 'Ctrl', 'P'],
     ]},

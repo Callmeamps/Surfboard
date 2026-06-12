@@ -896,6 +896,8 @@
       else if (c && e.key === 'Tab') { e.preventDefault(); window.PaperTM?.cycleTab(e.shiftKey ? -1 : 1); }
       // ? — toggle shortcut menu
       else if (e.key === '?' && !c && !e.altKey && !_isInputFocused()) { e.preventDefault(); _toggleShortcutMenu(); }
+      // Ctrl+Shift+0 — toggle miniapps
+      else if (c && e.shiftKey && e.key === '0') { e.preventDefault(); _toggleMiniapps(); }
       // Ctrl+Shift+M — cycle feature-platform modes
       else if (c && e.shiftKey && e.key === 'M') {
         e.preventDefault();
@@ -1013,18 +1015,41 @@
   }
 
   // ── Miniapps ───────────────────────────────────────────
+  let _miniappsPanelOpen = false;
+
   function _toggleMiniapps() {
-    const list = window.Miniapps?.getList?.() || [];
-    if (list.length > 0) {
-      // Open first miniapp as launcher
-      window.Miniapps.open(list[0].id);
-      // Sync with ModeManager
-      if (window.ModeManager) {
-        window.ModeManager.set('browse');
-      }
-      // Show active indicator
-      $rsidebarMiniapps?.classList.add('active');
+    if (_miniappsPanelOpen) {
+      window.Miniapps?.close?.();
+      window.RightSidebar?.closePanel?.();
+      _miniappsPanelOpen = false;
+      $rsidebarMiniapps?.classList.remove('active');
+      return;
     }
+    const list = window.Miniapps?.getList?.() || [];
+    if (list.length === 0) return;
+
+    // Show miniapp chooser in right sidebar panel
+    window.RightSidebar?.openPanel?.('miniapps', 'Miniapps');
+    const panel = document.getElementById('popup-panel-content');
+    if (panel) {
+      panel.innerHTML = '';
+      const grid = document.createElement('div');
+      grid.className = 'miniapp-chooser';
+      list.forEach(app => {
+        const btn = document.createElement('button');
+        btn.className = 'miniapp-chooser-btn';
+        btn.innerHTML = `<span class="miniapp-chooser-icon">${app.icon || '🧩'}</span><span class="miniapp-chooser-name">${app.name}</span>`;
+        btn.addEventListener('click', () => {
+          window.Miniapps.open(app.id);
+          _miniappsPanelOpen = true;
+          $rsidebarMiniapps?.classList.add('active');
+        });
+        grid.appendChild(btn);
+      });
+      panel.appendChild(grid);
+    }
+    _miniappsPanelOpen = true;
+    $rsidebarMiniapps?.classList.add('active');
   }
 
   // ── Workflow Mode ─────────────────────────────────────
