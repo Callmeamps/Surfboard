@@ -60,15 +60,15 @@ app.on('second-instance', (_event, _commandLine, _workingDirectory) => {
 
 // ── Linux: Wayland / X11 hints ─────────────────────────
 if (process.platform === 'linux') {
-  // Force X11 unless --wayland flag is passed (Wayland needs Vulkan which many CI envs lack)
-  if (!process.argv.includes('--wayland')) {
-    app.commandLine.appendSwitch('ozone-platform', 'x11');
-  } else {
-    app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations');
-    app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
-  }
+  // Auto-detect platform (Wayland preferred, X11 fallback)
+  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+  app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations');
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
   app.commandLine.appendSwitch('disable-gpu-sandbox');
+  // Allow explicit override via --x11 or --wayland flags
+  if (process.argv.includes('--x11')) {
+    app.commandLine.appendSwitch('ozone-platform', 'x11');
+  }
 }
 
 // ── Performance: limit renderer processes (like game LOD) ──
