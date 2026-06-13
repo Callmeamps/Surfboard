@@ -95,6 +95,12 @@ body::before {
   background: var(--border); flex-shrink: 0;
 }
 
+/* ── Content Area ─────────────────────────────────────── */
+#content-area {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; position: relative;
+}
+
 /* ── Bookmarks ──────────────────────────────────────────── */
 #bookmarks-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -226,20 +232,20 @@ body::before {
 }
 
 /* ── Address Bar / Top Bar ──────────────────────────────── */
-#topbar {
+#address-bar {
   height: var(--addressbar-h); display: flex; align-items: center;
   padding: 0 var(--space-md); gap: var(--space-sm);
   background: var(--bg-surface); border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
-#address-bar {
+#address-input {
   flex: 1; padding: 8px var(--space-md);
   background: var(--bg-elevated); border: 1px solid var(--border);
   color: var(--text-primary); font-size: 13px; font-family: var(--font-body);
   outline: none; transition: border-color var(--duration-fast);
 }
-#address-bar:focus { border-color: var(--silver-dark); }
+#address-input:focus { border-color: var(--silver-dark); }
 
 /* ── Webview Container ──────────────────────────────────── */
 #webview-container {
