@@ -1221,3 +1221,67 @@ webview {
   --address-h:    40px;
   --island-h:     44px;
 }
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+#tab-list::before, #tab-list::after {
+  content: ''; display: block; height: 4px; flex-shrink: 0;
+}
+
+.tab:not(.active) .tab-title { color: var(--text-secondary); font-size: 10px; }
+
+.tab.active .tab-close { width: 18px; height: 18px; font-size: 12px; }
+
+.tab:not(.active) .tab-close { width: 0; height: 0; overflow: hidden; opacity: 0; padding: 0; }
+
+.tab:not(.active):hover .tab-close { width: 14px; height: 14px; opacity: 1; margin: 0; }
+
+.tab.active .tab-loader { width: 8px; height: 8px; }
+
+.tab.loading .tab-loader { opacity: 1; animation: tabPulse 1s ease-in-out infinite; }
+
+@keyframes tabPulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+#webview-container webview {
+  flex: 1; width: 100%; min-height: 0;
+  /* display controlled via inline style: flex=active, none=hidden */
+}
+
+#new-tab-logo span { color: var(--terracotta); }
+
+.new-tab-link .nl-icon {
+  width: 36px; height: 36px; border-radius: 50%; background: var(--bg-elevated);
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+}
+
+.new-tab-link .nl-label { font-size: 11px; max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.shortcut-dropdown > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.shortcut-dropdown > summary::-webkit-details-marker { display: none; }
+
+.shortcut-row span:first-child { color: var(--text-primary); }
+
+.shortcut-keys kbd {
+  padding: 2px 6px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--bg-surface); color: var(--text-primary); font-size: 11px; line-height: 1.2;
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,0.04);
+}
+
+#app:hover #right-sidebar-toggle, #right-sidebar-toggle:hover { opacity: 1; }
+
+#right-sidebar.collapsed ~ #right-sidebar-toggle { right: 0; }
+
+.rsidebar-btn.active .rsidebar-dot { display: block; }
