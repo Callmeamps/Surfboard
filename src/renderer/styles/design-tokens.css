@@ -1,0 +1,70 @@
+/* ── Design Tokens: Paper Sandbox ─────────────────────────── */
+:root {
+  /* ── Core Palette ────────────────────────────────────── */
+  --ink:            #000000;
+  --paper:          #f5f0e8;
+  --paper-warm:     #ede6d8;
+  --paper-cool:     #e8e4dc;
+  --silver:         #c0c0c0;
+  --silver-light:   #d8d8d8;
+  --silver-dark:    #8a8a8a;
+
+  /* ── Earthy Tones ────────────────────────────────────── */
+  --clay:           #c4a882;
+  --clay-deep:      #a68b6b;
+  --terracotta:     #c97b5a;
+  --moss:           #7d8a6f;
+  --stone:          #6b6560;
+  --parchment:      #d4cfc4;
+
+  /* ── Backgrounds ─────────────────────────────────────── */
+  --bg-deep:        #0a0a0a;
+  --bg-surface:     #141414;
+  --bg-elevated:    #1e1e1e;
+  --bg-hover:       #282828;
+  --bg-active:      #333333;
+
+  /* ── Text ────────────────────────────────────────────── */
+  --text-primary:   var(--paper);
+  --text-secondary: var(--silver);
+  --text-muted:     var(--silver-dark);
+  --text-faint:     #555555;
+
+  /* ── Accent ──────────────────────────────────────────── */
+  --accent:         var(--terracotta);
+  --accent-hover:   #d4896a;
+
+  /* ── Borders ─────────────────────────────────────────── */
+  --border:         #2a2a2a;
+  --border-subtle:  #1f1f1f;
+
+  /* ── Dimensions ──────────────────────────────────────── */
+  --sidebar-w:      240px;
+  --sidebar-collapsed-w: 48px;
+  --addressbar-h:   44px;
+  --tab-h:          36px;
+  --scrollbar-h:    6px;
+
+  /* ── Typography ──────────────────────────────────────── */
+  --font-display:   'Georgia', 'Times New Roman', serif;
+  --font-body:      'Helvetica Neue', 'Arial', sans-serif;
+  --font-mono:      'SF Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* ── Spacing ─────────────────────────────────────────── */
+  --space-xs:       4px;
+  --space-sm:       8px;
+  --space-md:       16px;
+  --space-lg:       24px;
+  --space-xl:       32px;
+
+  /* ── Motion ──────────────────────────────────────────── */
+  --ease-out:       cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-in-out:    cubic-bezier(0.42, 0, 0.58, 1);
+  --duration-fast:  120ms;
+  --duration-med:   250ms;
+  --duration-slow:  400ms;
+
+  /* ── Paper Texture ───────────────────────────────────── */
+  --noise-opacity:  0.03;
+  --grain-size:     200px;
+}

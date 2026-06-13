@@ -364,6 +364,24 @@
       </div>
     </div>
 
+    <!-- ── Paper Switcher (Zoom Out View) ─────────────────── -->
+    <div id="paper-switcher">
+      <div id="paper-switcher-header">
+        <span id="paper-switcher-title" class="paint-highlight">Open Papers</span>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="shortcut-hint">Esc to close</span>
+          <button id="paper-switcher-close">Close</button>
+        </div>
+      </div>
+      <div id="paper-grid"></div>
+    </div>
+
+    <!-- ── Scroll Switcher Bar ────────────────────────────── -->
+    <div id="scroll-switcher">
+      <div id="scroll-switcher-items"></div>
+      <span id="scroll-switcher-hint">Scroll or use ← → to switch</span>
+    </div>
+
     <!-- Toast notification -->
     <div id="toast-container"></div>
 
@@ -482,6 +500,7 @@
   <script src="js/settings-page.js"></script>
   <script src="js/tab-pages.js"></script>
   <script src="js/profiles.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/paper-switcher.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
