@@ -44,6 +44,9 @@
   --addressbar-h:   44px;
   --tab-h:          36px;
   --scrollbar-h:    6px;
+  --right-sidebar-w: 48px;
+  --right-sidebar-expanded-w: 320px;
+  --danger:         #c97b5a;
 
   /* ── Typography ──────────────────────────────────────── */
   --font-display:   'Georgia', 'Times New Roman', serif;
