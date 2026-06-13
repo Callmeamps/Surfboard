@@ -1134,6 +1134,7 @@ webview {
 .rsidebar-btn.active { color: var(--terracotta); background: rgba(96,165,250,0.1); }
 
 .rsidebar-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.rsidebar-btn svg { width: 16px; height: 16px; }
 
 .rsidebar-dot {
   position: absolute; top: 2px; right: 2px;
