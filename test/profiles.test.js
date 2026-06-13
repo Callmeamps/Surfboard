@@ -350,7 +350,6 @@ describe('profiles', () => {
 
   describe('default profile data migration', () => {
     it('migrates old storage.json to profile data', () => {
-      // Write a fake old storage.json
       const oldData = {
         bookmarks: [{ id: 'old-bm', label: 'Old', url: 'https://old.com' }],
         history: [{ url: 'https://old.com', title: 'Old', time: Date.now() }],
@@ -362,6 +361,112 @@ describe('profiles', () => {
       const bms = profiles.getProfileBookmarks('default');
       expect(bms.length).toBe(1);
       expect(bms[0].label).toBe('Old');
+    });
+  });
+
+  describe('getCurrentProfileId', () => {
+    it('returns current profile id', () => {
+      profiles.init();
+      expect(profiles.getCurrentProfileId()).toBe('default');
+    });
+
+    it('updates after switch', () => {
+      profiles.init();
+      const p = profiles.createProfile({ name: 'Work' });
+      profiles.switchProfile(p.id);
+      expect(profiles.getCurrentProfileId()).toBe(p.id);
+    });
+  });
+
+  describe('history limit', () => {
+    it('caps history at 500 entries', () => {
+      profiles.init();
+      for (let i = 0; i < 510; i++) {
+        profiles.addProfileHistoryEntry({ url: `https://example.com/page${i}`, title: `Page ${i}` });
+      }
+      const history = profiles.getProfileHistory(1000);
+      expect(history.length).toBeLessThanOrEqual(500);
+    });
+  });
+
+  describe('environments', () => {
+    it('lists empty environments initially', () => {
+      profiles.init();
+      expect(profiles.getProfileEnvironments()).toEqual([]);
+    });
+
+    it('adds an environment', () => {
+      profiles.init();
+      const env = profiles.addProfileEnvironment({ name: 'API Key', value: 'sk-123', type: 'secret' });
+      expect(env.id).toBeDefined();
+      expect(env.name).toBe('API Key');
+      const list = profiles.getProfileEnvironments();
+      expect(list).toHaveLength(1);
+    });
+
+    it('updates an environment', () => {
+      profiles.init();
+      const env = profiles.addProfileEnvironment({ name: 'Old', value: 'x' });
+      profiles.updateProfileEnvironment(env.id, { name: 'New' });
+      const list = profiles.getProfileEnvironments();
+      expect(list[0].name).toBe('New');
+    });
+
+    it('removes an environment', () => {
+      profiles.init();
+      const env = profiles.addProfileEnvironment({ name: 'Temp', value: 'y' });
+      profiles.removeProfileEnvironment(env.id);
+      expect(profiles.getProfileEnvironments()).toEqual([]);
+    });
+
+    it('environments are profile-scoped', () => {
+      profiles.init();
+      const p = profiles.createProfile({ name: 'Work' });
+      profiles.addProfileEnvironment({ name: 'Dev Key', value: 'dev-123' }, 'default');
+      profiles.addProfileEnvironment({ name: 'Work Key', value: 'work-456' }, p.id);
+
+      expect(profiles.getProfileEnvironments('default')).toHaveLength(1);
+      expect(profiles.getProfileEnvironments(p.id)).toHaveLength(1);
+      expect(profiles.getProfileEnvironments('default')[0].name).toBe('Dev Key');
+    });
+  });
+
+  describe('workflows', () => {
+    it('lists empty workflows initially', () => {
+      profiles.init();
+      expect(profiles.getProfileWorkflows()).toEqual([]);
+    });
+
+    it('adds a workflow', () => {
+      profiles.init();
+      const wf = profiles.addProfileWorkflow({ name: 'Deploy', steps: ['build', 'test', 'push'] });
+      expect(wf.id).toBeDefined();
+      expect(wf.name).toBe('Deploy');
+      expect(profiles.getProfileWorkflows()).toHaveLength(1);
+    });
+
+    it('updates a workflow', () => {
+      profiles.init();
+      const wf = profiles.addProfileWorkflow({ name: 'Old' });
+      profiles.updateProfileWorkflow(wf.id, { name: 'New' });
+      expect(profiles.getProfileWorkflows()[0].name).toBe('New');
+    });
+
+    it('removes a workflow', () => {
+      profiles.init();
+      const wf = profiles.addProfileWorkflow({ name: 'Temp' });
+      profiles.removeProfileWorkflow(wf.id);
+      expect(profiles.getProfileWorkflows()).toEqual([]);
+    });
+
+    it('workflows are profile-scoped', () => {
+      profiles.init();
+      const p = profiles.createProfile({ name: 'Work' });
+      profiles.addProfileWorkflow({ name: 'Dev Flow' }, 'default');
+      profiles.addProfileWorkflow({ name: 'Work Flow' }, p.id);
+
+      expect(profiles.getProfileWorkflows('default')).toHaveLength(1);
+      expect(profiles.getProfileWorkflows(p.id)).toHaveLength(1);
     });
   });
 });
