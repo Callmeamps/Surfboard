@@ -135,5 +135,63 @@ describe('PDF Viewer', () => {
     it('returns null for unknown cacheKey', () => {
       expect(pdfViewer.getPdfData('nonexistent')).toBeNull();
     });
+
+    it('returns Uint8Array from getPdfData', async () => {
+      const pdfBytes = Buffer.from('%PDF-1.4 uint8 test');
+      const { net } = require('electron');
+
+      const mockRequest = { on: jest.fn(), end: jest.fn() };
+      const mockResponse = { statusCode: 200, on: jest.fn() };
+
+      net.request.mockReturnValue(mockRequest);
+      mockRequest.on.mockImplementation((event, handler) => {
+        if (event === 'response') setTimeout(() => handler(mockResponse), 10);
+        return mockRequest;
+      });
+      mockResponse.on.mockImplementation((event, handler) => {
+        if (event === 'data') setTimeout(() => handler(pdfBytes), 10);
+        if (event === 'end') setTimeout(handler, 20);
+        return mockResponse;
+      });
+
+      const { cacheKey } = await pdfViewer.openPdf('https://example.com/uint8.pdf');
+      const data = pdfViewer.getPdfData(cacheKey);
+      expect(data).toBeInstanceOf(Uint8Array);
+      expect(data.length).toBe(pdfBytes.length);
+    });
+  });
+
+  describe('cache eviction', () => {
+    it('evicts oldest entry when cache is full (10 entries)', async () => {
+      const { net } = require('electron');
+      const mockRequest = { on: jest.fn(), end: jest.fn() };
+      const mockResponse = { statusCode: 200, on: jest.fn() };
+
+      net.request.mockReturnValue(mockRequest);
+      mockRequest.on.mockImplementation((event, handler) => {
+        if (event === 'response') setTimeout(() => handler(mockResponse), 0);
+        return mockRequest;
+      });
+      mockResponse.on.mockImplementation((event, handler) => {
+        if (event === 'data') setTimeout(() => handler(Buffer.from('%PDF')), 0);
+        if (event === 'end') setTimeout(handler, 0);
+        return mockResponse;
+      });
+
+      // Fill cache with 10 entries
+      const keys = [];
+      for (let i = 0; i < 10; i++) {
+        const result = await pdfViewer.openPdf(`https://example.com/doc${i}.pdf`);
+        keys.push(result.cacheKey);
+      }
+
+      // Add one more — should evict oldest
+      const result = await pdfViewer.openPdf('https://example.com/overflow.pdf');
+      expect(result.cacheKey).toBeDefined();
+      expect(result.cacheKey).not.toBe(keys[0]);
+
+      // Oldest should be gone
+      expect(pdfViewer.getPdfData(keys[0])).toBeNull();
+    });
   });
 });
