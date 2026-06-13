@@ -391,7 +391,7 @@ webview {
 
 /* ── Right Sidebar ──────────────────────────────────────── */
 #right-sidebar {
-  width: var(--sidebar-collapsed-w);
+  width: var(--right-sidebar-w);
   background: var(--bg-surface);
   border-left: 1px solid var(--border);
   display: flex; flex-direction: column;
@@ -405,15 +405,19 @@ webview {
 
 /* ── Right Sidebar Toggle ───────────────────────────────── */
 #right-sidebar-toggle {
-  width: 100%; padding: var(--space-sm);
-  border: none; background: transparent;
-  color: var(--silver-dark); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: color var(--duration-fast), background var(--duration-fast);
+  position: fixed; top: 50%; right: var(--right-sidebar-w);
+  transform: translate(50%, -50%); z-index: 61;
+  width: 16px; height: 44px;
+  border: 1px solid var(--border); border-right: none;
+  border-radius: 8px 0 0 8px;
+  background: var(--bg-elevated); color: var(--text-secondary);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 9px; padding: 0; opacity: 0;
+  transition: right var(--duration-med) var(--ease-out), opacity var(--duration-fast);
 }
-#right-sidebar-toggle:hover {
-  background: var(--bg-hover); color: var(--silver);
-}
+#app:hover #right-sidebar-toggle, #right-sidebar-toggle:hover { opacity: 1; }
+#right-sidebar.collapsed ~ #right-sidebar-toggle { right: 0; }
+#right-sidebar-toggle:hover { background: var(--bg-hover); color: var(--text-primary); }
 #right-sidebar-toggle svg { width: 16px; height: 16px; }
 
 /* ── Right Sidebar Content ──────────────────────────────── */
@@ -1279,10 +1283,6 @@ webview {
   background: var(--bg-surface); color: var(--text-primary); font-size: 11px; line-height: 1.2;
   box-shadow: inset 0 -1px 0 rgba(255,255,255,0.04);
 }
-
-#app:hover #right-sidebar-toggle, #right-sidebar-toggle:hover { opacity: 1; }
-
-#right-sidebar.collapsed ~ #right-sidebar-toggle { right: 0; }
 
 .rsidebar-btn.active .rsidebar-dot { display: block; }#ntp-suggestions { max-height: 300px; overflow-y: auto; border-radius: 10px; margin-top: 4px; background: var(--bg-panel, #1a1a1e); border: 1px solid var(--border); }
 
