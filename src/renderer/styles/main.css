@@ -231,22 +231,6 @@ body::before {
   overflow: hidden; position: relative;
 }
 
-/* ── Address Bar / Top Bar ──────────────────────────────── */
-#address-bar {
-  height: var(--addressbar-h); display: flex; align-items: center;
-  padding: 0 var(--space-md); gap: var(--space-sm);
-  background: var(--bg-surface); border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-#address-input {
-  flex: 1; padding: 8px var(--space-md);
-  background: var(--bg-elevated); border: 1px solid var(--border);
-  color: var(--text-primary); font-size: 13px; font-family: var(--font-body);
-  outline: none; transition: border-color var(--duration-fast);
-}
-#address-input:focus { border-color: var(--silver-dark); }
-
 /* ── Webview Container ──────────────────────────────────── */
 #webview-container {
   flex: 1; position: relative; overflow: hidden;
@@ -1115,6 +1099,7 @@ webview {
   padding: 0 16px; gap: 10px; transition: border-color 0.15s, box-shadow 0.15s;
 }
 
+#new-tab-input-wrap svg { width: 18px; height: 18px; color: var(--text-secondary); flex-shrink: 0; }
 #new-tab-input-wrap:focus-within { border-color: var(--terracotta); box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
 
 #new-tab-input { flex: 1; height: 100%; border: none; background: transparent; color: var(--text-primary); font-size: 15px; font-family: inherit; outline: none; }
