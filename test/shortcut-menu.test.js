@@ -136,7 +136,7 @@ describe('Shortcut Menu', () => {
     window.ShortcutData.renderList(list);
 
     const rows = list.querySelectorAll('.shortcut-row');
-    expect(window.ShortcutData.groups.length).toBe(6);
+    expect(window.ShortcutData.groups.length).toBe(8);
     expect(rows.length).toBeGreaterThan(10);
     expect(rows[0].querySelector('span').textContent).toBe('Address bar');
     expect(Array.from(rows[0].querySelectorAll('kbd')).map(kbd => kbd.textContent).join(' ')).toBe('Ctrl L');
