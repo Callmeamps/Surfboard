@@ -43,7 +43,33 @@ if (process.argv.includes('--dev')) {
   }
 }
 
+// ── Clean stale singleton locks ────────────────────────
+// Electron uses SingletonLock/SingletonCookie/SingletonSocket symlinks
+// in ~/.config/<appname>/ to enforce single instance. A hard kill (kill -9)
+// leaves these behind, causing every future launch to silently quit.
+function cleanStaleSingletonLocks() {
+  const fs = require('fs');
+  const lockDir = app.getPath('userData');
+  const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
+
+  for (const name of lockFiles) {
+    const p = path.join(lockDir, name);
+    try {
+      const stat = fs.lstatSync(p);
+      if (!stat.isSymbolicLink()) continue;
+      const target = fs.readlinkSync(p);
+      // Stale if target socket doesn't exist
+      const socketPath = path.isAbsolute(target) ? target : path.join(lockDir, target);
+      if (!fs.existsSync(socketPath)) {
+        fs.unlinkSync(p);
+        console.log(`[main] cleaned stale ${name} -> ${target}`);
+      }
+    } catch (_) { /* missing = nothing to clean */ }
+  }
+}
+
 // ── Single instance lock ────────────────────────────────
+cleanStaleSingletonLocks();
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
