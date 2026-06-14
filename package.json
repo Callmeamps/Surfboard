@@ -52,7 +52,10 @@
     "browser",
     "chromium"
   ],
-  "author": "",
+  "author": {
+    "name": "ZOO",
+    "email": "dev@zoo.company"
+  },
   "license": "MIT",
   "dependencies": {
     "pdfjs-dist": "^6.0.227",
