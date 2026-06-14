@@ -1,6 +1,6 @@
 {
   "name": "surfboard",
-  "version": "0.1.0",
+  "version": "1.1.0-edge",
   "description": "A riced Electron-based browser with vertical tabs, sidebar, and AI sidecar",
   "main": "app.js",
   "scripts": {
