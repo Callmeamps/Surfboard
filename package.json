@@ -1,6 +1,6 @@
 {
   "name": "surfboard",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A riced Electron-based browser with vertical tabs, sidebar, and AI sidecar",
   "main": "app.js",
   "scripts": {
@@ -52,7 +52,10 @@
     "browser",
     "chromium"
   ],
-  "author": "",
+  "author": {
+    "name": "ZOO",
+    "email": "dev@zoo.company"
+  },
   "license": "MIT",
   "dependencies": {
     "pdfjs-dist": "^6.0.227",
