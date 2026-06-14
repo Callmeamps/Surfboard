@@ -106,9 +106,9 @@ async function createWindow() {
 
   windowManager.setWindow(win);
 
- // Load extensions BEFORE the renderer so content scripts inject on first navigation
- const extensionLoader = require('./extension-loader');
- await extensionLoader.autoLoadExtensions();
+  // Load extensions BEFORE the renderer so content scripts inject on first navigation
+  const extensionLoader = require('./extension-loader');
+  await extensionLoader.autoLoadExtensions();
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
@@ -120,7 +120,6 @@ async function createWindow() {
   win.on('closed', () => {
     windowManager.setWindow(null);
   });
-
 }
 
 // ── Ad/tracker blocking via session webRequest ──────────

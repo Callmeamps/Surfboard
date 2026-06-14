@@ -7,7 +7,7 @@
 
 const { net } = require('electron');
 const profiles = require('./profiles');
-const config = require('../../config');
+const config = require('../config');
 
 const POLL_INTERVAL_MS = 5000;
 const MAX_POLL_ATTEMPTS = 60; // 5 minutes max
