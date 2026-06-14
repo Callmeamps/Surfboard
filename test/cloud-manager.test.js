@@ -23,8 +23,8 @@ jest.mock('../src/main/profiles', () => {
   };
 });
 
-// Mock config
-jest.mock('../config', () => ({
+// Mock config — must match the resolved path from src/main/cloud-manager.js
+jest.mock('../src/config', () => ({
   github: {
     clientId: 'test-github-client',
   },
