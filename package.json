@@ -2,6 +2,7 @@
   "name": "surfboard",
   "version": "1.0.0",
   "description": "A riced Electron-based browser with vertical tabs, sidebar, and AI sidecar",
+  "desktopName": "Surfboard",
   "main": "app.js",
   "bin": {
     "surfboard": "bin/surfboard"
@@ -17,10 +18,12 @@
   "build": {
     "appId": "com.surfboard.browser",
     "productName": "Surfboard",
+    "icon": "build/icon.png",
     "npmRebuild": false,
     "files": [
       "app.js",
       "bin/**/*",
+      "build/**/*",
       "src/**/*",
       "!test/**",
       "!handoffs/**",
@@ -31,7 +34,8 @@
         "deb"
       ],
       "category": "Network",
-      "executableName": "surfboard"
+      "executableName": "surfboard",
+      "syncDesktopName": true
     },
     "mac": {
       "target": [
