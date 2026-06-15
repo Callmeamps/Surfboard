@@ -17,40 +17,10 @@ echo "════════════════════════�
 # Ensure directories exist
 mkdir -p "$INSTALL_DIR" "$BIN_DIR" "$DESKTOP_DIR"
 
-# Find the built AppImage or unpacked binary
-APPIMAGE=$(ls -t dist/Surfboard-*.AppImage 2>/dev/null | head -1)
+# Find the built unpacked binary
 UNPACKED="dist/linux-unpacked/surfboard"
 
-if [ -f "$APPIMAGE" ]; then
-  echo "[1/3] Installing AppImage..."
-  cp -f "$APPIMAGE" "$INSTALL_DIR/surfboard"
-  chmod +x "$INSTALL_DIR/surfboard"
-  
-  # Create wrapper for AppImage
-  cat > "$BIN_DIR/surfboard" <<'EOF'
-#!/bin/bash
-# Surfboard launcher - auto-detects Wayland/X11
-export ELECTRON_DISABLE_SANDBOX=1
-export OZONE_PLATFORM_HINT=auto
-exec "$HOME/.local/share/surfboard/surfboard" "$@"
-EOF
-  
-  # Edge build alternative
-  if [ "$CHANNEL" = "edge" ]; then
-    cat > "$BIN_DIR/surfboard-edge" <<'EOF'
-#!/bin/bash
-export ELECTRON_DISABLE_SANDBOX=1
-export OZONE_PLATFORM_HINT=auto
-exec "$HOME/.local/share/surfboard/surfboard" --dev "$@"
-EOF
-    chmod +x "$BIN_DIR/surfboard-edge"
-    echo "  ✓ Edge launcher: surfboard-edge"
-  fi
-  
-  chmod +x "$BIN_DIR/surfboard"
-  echo "  ✓ Installed to: $INSTALL_DIR/surfboard"
-  
-elif [ -f "$UNPACKED" ]; then
+if [ -f "$UNPACKED" ]; then
   echo "[1/3] Installing unpacked binary..."
   cp -rf dist/linux-unpacked/* "$INSTALL_DIR/"
   

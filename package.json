@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "A riced Electron-based browser with vertical tabs, sidebar, and AI sidecar",
   "main": "app.js",
+  "bin": {
+    "surfboard": "bin/surfboard"
+  },
   "scripts": {
     "start": "electron . --no-sandbox --enable-features=CanvasDrawElement",
     "dev": "electron . --no-sandbox --dev --enable-features=CanvasDrawElement",
@@ -17,6 +20,7 @@
     "npmRebuild": false,
     "files": [
       "app.js",
+      "bin/**/*",
       "src/**/*",
       "!test/**",
       "!handoffs/**",
@@ -24,10 +28,10 @@
     ],
     "linux": {
       "target": [
-        "AppImage",
         "deb"
       ],
-      "category": "Network"
+      "category": "Network",
+      "executableName": "surfboard"
     },
     "mac": {
       "target": [

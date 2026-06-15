@@ -26,19 +26,14 @@ if [ "$CHANNEL" = "edge" ]; then
   # Edge: include dev deps and debug symbols
   npx electron-builder --dir --config electron-builder.edge.yml 2>&1 | tail -20
 else
-  # Stable: full distribution packages
-  npx electron-builder 2>&1 | tail -20
+  # Stable: build the .deb package
+  npx electron-builder --linux deb 2>&1 | tail -20
 fi
 
 echo "[2/3] Verifying build artifacts..."
 if [ -d "dist/linux-unpacked" ]; then
   echo "  ✓ Linux unpacked build found"
   ls -lh dist/linux-unpacked/surfboard 2>/dev/null || true
-fi
-
-if [ -f "dist/Surfboard-*.AppImage" ]; then
-  echo "  ✓ AppImage found:"
-  ls -lh dist/Surfboard-*.AppImage
 fi
 
 if [ -f "dist/*.deb" ]; then

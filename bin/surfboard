@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Keep the packaged command compatible with the dev/start launcher flags.
+exec "$APP_DIR/node_modules/.bin/electron" "$APP_DIR" "$@"
